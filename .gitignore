@@ -1,0 +1,26 @@
+# Secrets
+.env
+
+# Virtual environments
+.venv/
+nishaenv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local databases
+*.db
+
+# Temp files
+.tmp/
+*.log
+
+# Dev test files
+test_*.py
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
