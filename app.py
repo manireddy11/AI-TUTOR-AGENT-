@@ -1,53 +1,38 @@
-﻿"""
-AI Tutor — Premium Edition v2.0
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-5 Flagship Courses:
-  1. Python for Everyone
-  2. AI for Content Creation
-  3. Micro MBA 2026
-  4. AI Leadership
-  5. LinkedIn Mastery
-
-Backend: Groq API (Llama 3.1 8B Instant)
-Deploy:  Streamlit Cloud (set GROQ_API_KEY in secrets)
-Theme:   Editorial-premium dark (ink-black + cream + serif)
-
-Secrets required (streamlit cloud → App settings → Secrets):
-  GROQ_API_KEY      = "gsk_..."
-  SUPABASE_URL      = "https://xxx.supabase.co"   # optional
-  SUPABASE_KEY      = "eyJ..."                     # optional
+"""
+TEACHER.AI – Production v5.0
+Backend: Groq (Llama 3.1 8B Instant)  |  DB: Supabase  |  Theme: Stanford White + Red
+Fixes: Dashboard transparency, metric colors, all 10 production bugs patched.
+Courses: New 2026 curriculum (8 courses).  Code tab removed, sign‑out in sidebar,
+        no emoji icons in course titles, renamed to TEACHER.AI.
 """
 
-import os, re, json, uuid, hashlib, ast, io, inspect, contextlib, pprint, traceback as tb_module
+import os, re, json, uuid, hashlib, ast, io, contextlib, traceback as tb_module
 import streamlit as st
-import pandas as pd
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 from groq import Groq
 
 load_dotenv()
 
-# ══════════════════════════════════════════════════════════════════════
-# PAGE CONFIG
-# ══════════════════════════════════════════════════════════════════════
+# ─── PAGE CONFIG ─────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Luminary — AI Tutor",
+    page_title="TEACHER.AI",
     page_icon="◈",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# ══════════════════════════════════════════════════════════════════════
-# SECRETS
-# ══════════════════════════════════════════════════════════════════════
+# ─── SECRETS ─────────────────────────────────────────────────────────
 def _secret(key, default=""):
-    try:    return st.secrets[key]
-    except: return os.getenv(key, default)
+    try:
+        return st.secrets[key]
+    except Exception:
+        return os.getenv(key, default)
 
 GROQ_API_KEY = _secret("GROQ_API_KEY")
 SUPABASE_URL = _secret("SUPABASE_URL")
 SUPABASE_KEY = _secret("SUPABASE_KEY")
-MODEL        = "llama-3.1-8b-instant"
+MODEL = "llama-3.1-8b-instant"
 
 def _render_html(html):
     if hasattr(st, "html"):
@@ -55,956 +40,508 @@ def _render_html(html):
     else:
         st.markdown(html, unsafe_allow_html=True)
 
-# ══════════════════════════════════════════════════════════════════════
-# GLOBAL CSS — editorial dark, ink + cream + warm gold
-# ══════════════════════════════════════════════════════════════════════
+# ─── GLOBAL CSS ───────────────────────────────────────────────────────
 _render_html("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  --ink:      #0a090c;
-  --ink2:     #111018;
-  --ink3:     #161422;
-  --ink4:     #1e1c2d;
-  --rule:     #1f1d2e;
-  --rule2:    #2a2840;
-  --cream:    #f0ebe1;
-  --cream2:   #d4cfc4;
-  --cream3:   #8a8578;
-  --gold:     #c8a96e;
-  --gold2:    #e8c987;
-  --teal:     #3ecfb2;
-  --rose:     #e8736a;
-  --azure:    #6ab4e8;
-  --lime:     #8ece6a;
-  --r:        8px;
-  --r2:       12px;
-  --r3:       16px;
-  --shadow:   0 4px 24px rgba(0,0,0,0.5);
+  --bg: #ffffff;
+  --bg-offset: #fafbfc;
+  --card: #ffffff;
+  --border: #eef2f6;
+  --border2: #e2e8f0;
+  --text: #1a202c;
+  --text-light: #2d3748;
+  --text-muted: #4a5568;
+  --primary: #dc2626;
+  --primary-dark: #b91c1c;
+  --primary-light: #fee2e2;
+  --primary-bg: #fff5f5;
+  --success: #16a34a;
+  --success-bg: #f0fdf4;
+  --warning: #d97706;
+  --warning-bg: #fffbeb;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.02);
+  --shadow: 0 4px 12px rgba(0,0,0,0.03);
+  --shadow-lg: 0 20px 30px -12px rgba(0,0,0,0.08);
+  --radius: 20px;
+  --radius-sm: 14px;
+  --radius-xs: 10px;
 }
 
 html, body, [class*="css"] {
-  font-family: 'DM Sans', system-ui, sans-serif !important;
-  color: var(--cream2) !important;
+  background: var(--bg) !important;
+  color: var(--text) !important;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
 }
-.stApp { background: var(--ink) !important; }
-.block-container {
-  padding: 0.6rem 1.4rem 2rem !important;
-  max-width: 1400px !important;
+.stApp { background: var(--bg) !important; }
+.block-container { max-width: 1440px !important; padding: 1rem 2rem 2rem !important; }
+
+[data-testid="stSidebar"] {
+  background: var(--bg) !important;
+  border-right: 1px solid var(--border) !important;
 }
-[data-testid="stAppViewContainer"] > .main > .block-container {
-  padding-top: 0.4rem !important;
+[data-testid="stSidebar"] > div {
+  background: var(--bg) !important;
+  padding: 1rem 0.5rem !important;
 }
 
-/* ── Sidebar ───────────────────────────────────────── */
-[data-testid="stSidebar"],
-[data-testid="stSidebar"] > div,
-[data-testid="stSidebar"] > div > div {
-  background: var(--ink2) !important;
-  border-right: 1px solid var(--rule) !important;
-}
-[data-testid="stSidebar"] .stButton > button {
-  background: transparent !important;
-  border: 1px solid var(--rule) !important;
-  color: var(--cream3) !important;
-  border-radius: 6px !important;
-  font-size: 0.8rem !important;
-  font-weight: 500 !important;
-  transition: all 0.12s !important;
-  text-align: left !important;
-  padding: 0.42rem 0.8rem !important;
-  width: 100% !important;
-}
-[data-testid="stSidebar"] .stButton > button:hover {
-  background: var(--ink3) !important;
-  border-color: var(--rule2) !important;
-  color: var(--cream) !important;
-}
-[data-testid="stSidebar"] .stButton > button[kind="primary"] {
-  background: rgba(200,169,110,0.1) !important;
-  border-color: rgba(200,169,110,0.3) !important;
-  color: var(--gold2) !important;
-  font-weight: 600 !important;
-}
-
-/* ── Buttons ────────────────────────────────────────── */
+/* ── BUTTONS ── */
 .stButton > button {
-  border-radius: 6px !important;
-  font-family: 'DM Sans', sans-serif !important;
-  font-size: 0.82rem !important;
+  border-radius: 40px !important;
   font-weight: 500 !important;
-  letter-spacing: 0.01em !important;
-  transition: all 0.12s ease !important;
-  border: 1px solid var(--rule2) !important;
-  background: var(--ink3) !important;
-  color: var(--cream3) !important;
-  padding: 0.44rem 1rem !important;
-}
-.stButton > button:hover {
-  border-color: var(--gold) !important;
-  color: var(--gold2) !important;
-  background: rgba(200,169,110,0.06) !important;
+  font-size: 0.85rem !important;
+  padding: 0.5rem 1.2rem !important;
+  transition: all 0.2s ease !important;
+  background: white !important;
+  border: 1px solid var(--border2) !important;
+  color: var(--text-light) !important;
+  box-shadow: var(--shadow-sm);
 }
 .stButton > button[kind="primary"] {
-  background: var(--gold) !important;
-  border-color: var(--gold) !important;
-  color: var(--ink) !important;
-  font-weight: 600 !important;
+  background: var(--primary) !important;
+  border: none !important;
+  color: white !important;
+  -webkit-text-fill-color: white !important;
 }
 .stButton > button[kind="primary"]:hover {
-  background: var(--gold2) !important;
-  border-color: var(--gold2) !important;
+  background: var(--primary-dark) !important;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+.stButton > button:hover:not([kind="primary"]) {
+  border-color: var(--primary) !important;
+  color: var(--primary) !important;
+  background: var(--primary-bg) !important;
 }
 
-/* ── Inputs ─────────────────────────────────────────── */
+/* ── INPUTS ── */
 .stTextInput > div > div > input,
-.stTextInput > div > div {
-  border-radius: 6px !important;
-  border: 1px solid var(--rule2) !important;
-  background: var(--ink3) !important;
-  font-family: 'DM Sans', sans-serif !important;
-  font-size: 0.86rem !important;
-  color: var(--cream) !important;
-}
-.stTextInput > div > div > input:focus {
-  border-color: var(--gold) !important;
-  box-shadow: 0 0 0 3px rgba(200,169,110,0.1) !important;
-}
-.stTextInput > label {
-  font-size: 0.62rem !important; font-weight: 600 !important;
-  color: var(--cream3) !important; text-transform: uppercase !important;
-  letter-spacing: 0.08em !important;
-}
-
-/* ── Chat input ─────────────────────────────────────── */
+.stTextArea textarea,
 [data-testid="stChatInput"] textarea {
-  border-radius: 8px !important;
-  background: var(--ink3) !important;
-  border: 1px solid var(--rule2) !important;
-  font-family: 'DM Sans', sans-serif !important;
-  font-size: 0.86rem !important;
-  color: var(--cream) !important;
-}
-[data-testid="stChatInput"] textarea:focus {
-  border-color: var(--gold) !important;
-  box-shadow: 0 0 0 3px rgba(200,169,110,0.09) !important;
-}
-[data-testid="stChatInput"] button {
-  background: var(--gold) !important;
-  border-color: var(--gold) !important;
-  border-radius: 6px !important;
-}
-
-/* ── Text area ──────────────────────────────────────── */
-.stTextArea textarea {
-  border-radius: 6px !important;
-  border: 1px solid var(--rule2) !important;
-  background: #080710 !important;
-  font-family: 'DM Mono', monospace !important;
-  font-size: 0.81rem !important;
-  line-height: 1.75 !important;
-  color: #c9d1d9 !important;
-}
-.stTextArea textarea:focus {
-  border-color: var(--gold) !important;
-  box-shadow: 0 0 0 3px rgba(200,169,110,0.09) !important;
-}
-
-/* ── Select / slider ────────────────────────────────── */
-.stSelectbox > div > div {
-  border-radius: 6px !important;
-  border: 1px solid var(--rule2) !important;
-  background: var(--ink3) !important;
-  color: var(--cream2) !important;
-}
-.stSelectbox > label, .stSlider > label, .stSelectSlider > label {
-  font-size: 0.62rem !important; font-weight: 600 !important;
-  color: var(--cream3) !important; text-transform: uppercase !important;
-  letter-spacing: 0.08em !important;
-}
-
-/* ── Radio ──────────────────────────────────────────── */
-.stRadio > label {
-  font-size: 0.62rem !important; font-weight: 600 !important;
-  color: var(--cream3) !important; text-transform: uppercase !important;
-  letter-spacing: 0.08em !important;
-}
-.stRadio > div { gap: 5px !important; }
-.stRadio > div > label {
-  background: var(--ink3) !important;
-  border: 1px solid var(--rule2) !important;
-  border-radius: 6px !important;
-  padding: 0.38rem 0.85rem !important;
-  font-size: 0.82rem !important;
-  color: var(--cream3) !important;
-  transition: all 0.12s !important;
-  cursor: pointer !important;
-}
-.stRadio > div > label:hover {
-  border-color: var(--gold) !important;
-  color: var(--gold2) !important;
-}
-
-/* ── Expander ───────────────────────────────────────── */
-[data-testid="stExpander"] {
-  border: 1px solid var(--rule) !important;
-  border-radius: 8px !important;
-  background: var(--ink2) !important;
-}
-[data-testid="stExpander"] summary {
-  color: var(--cream3) !important;
-  font-size: 0.81rem !important;
-}
-
-/* ── Chat messages ──────────────────────────────────── */
-[data-testid="stChatMessage"] {
-  background: var(--ink2) !important;
-  border: 1px solid var(--rule) !important;
-  border-radius: 10px !important;
-  padding: 0.7rem 0.95rem !important;
-  margin-bottom: 0.3rem !important;
-}
-[data-testid="stChatMessage"] p {
-  color: var(--cream2) !important;
-  font-size: 0.86rem !important;
-  line-height: 1.7 !important;
-}
-[data-testid="stChatMessage"] code {
-  font-family: 'DM Mono', monospace !important;
-  font-size: 0.78rem !important;
-}
-[data-testid="stChatMessage"] pre {
-  background: #080710 !important;
-  border: 1px solid var(--rule2) !important;
-  border-radius: 6px !important;
-}
-
-/* ── DataFrame ──────────────────────────────────────── */
-[data-testid="stDataFrame"] {
-  border-radius: 8px !important;
-  border: 1px solid var(--rule) !important;
-  overflow: hidden;
-}
-
-/* ── Markdown ───────────────────────────────────────── */
-.stMarkdown p {
-  color: var(--cream2) !important;
-  font-size: 0.86rem !important;
-  line-height: 1.7 !important;
-}
-.stMarkdown code {
-  font-family: 'DM Mono', monospace !important;
-  font-size: 0.78rem !important;
-  background: var(--ink4) !important;
-  border: 1px solid var(--rule) !important;
-  border-radius: 3px; padding: 1px 5px;
-}
-.stMarkdown pre {
-  background: #080710 !important;
-  border: 1px solid var(--rule2) !important;
-  border-radius: 7px !important;
-}
-
-/* ── Misc ───────────────────────────────────────────── */
-hr { border-color: var(--rule) !important; margin: 0.5rem 0 !important; }
-.stSpinner > div { border-top-color: var(--gold) !important; }
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: var(--ink); }
-::-webkit-scrollbar-thumb { background: var(--rule2); border-radius: 2px; }
-#MainMenu, footer, header, .stDeployButton, [data-testid="stToolbar"] { display: none !important; }
-[data-testid="stAlert"] {
-  border-radius: 8px !important; background: var(--ink2) !important;
-  border: 1px solid var(--rule2) !important; color: var(--cream3) !important;
-  font-size: 0.82rem !important;
-}
-
-/* ── Luminary Copilot Premium Chat Styling ───────────────────── */
-.stChat {
-  background: transparent !important;
-  border: none !important;
-  padding: 0 !important;
-}
-
-.stChatMessage {
-  background: transparent !important;
-  border: none !important;
-  padding: 0.5rem 0 !important;
-}
-
-.stChatMessage[data-testid="stChatMessage-user"] {
-  background: transparent !important;
-  justify-content: flex-end !important;
-}
-
-.stChatMessage[data-testid="stChatMessage-assistant"] {
-  background: transparent !important;
-  justify-content: flex-start !important;
-}
-
-.stChatInput {
+  background: var(--bg-offset) !important;
+  border: 1px solid var(--border2) !important;
   border-radius: 20px !important;
-  border: 1px solid rgba(255,255,255,0.2) !important;
-  background: rgba(255,255,255,0.05) !important;
-  backdrop-filter: blur(10px) !important;
-  padding: 0.75rem 1rem !important;
-  font-size: 16px !important;
-  color: white !important;
-}
-
-.stChatInput:focus {
-  border-color: rgba(255,255,255,0.4) !important;
-  box-shadow: 0 0 0 2px rgba(255,255,255,0.1) !important;
-}
-
-.stChatInput::placeholder {
-  color: rgba(255,255,255,0.6) !important;
-}
-
-/* Chat message bubbles */
-.stChatMessage .stMarkdown {
-  background: rgba(255,255,255,0.1) !important;
-  border-radius: 18px !important;
-  padding: 12px 16px !important;
-  border: 1px solid rgba(255,255,255,0.1) !important;
-  backdrop-filter: blur(10px) !important;
-  color: white !important;
-  font-family: 'Inter', system-ui, sans-serif !important;
-  line-height: 1.5 !important;
-}
-
-.stChatMessage[data-testid="stChatMessage-user"] .stMarkdown {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-  color: white !important;
-  border-radius: 18px 18px 4px 18px !important;
-}
-
-.stChatMessage[data-testid="stChatMessage-assistant"] .stMarkdown {
-  background: rgba(255,255,255,0.05) !important;
-  color: white !important;
-  border-radius: 18px 18px 18px 4px !important;
-  border-left: 3px solid #00ff88 !important;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* Premium input styling */
-[data-testid="stTextInput"] input {
-  border-radius: 25px !important;
-  background: #1a1a2e !important;
-  border: 2px solid #2a2a4e !important;
-  font-family: 'Inter', sans-serif !important;
-  font-size: 0.95rem !important;
-  color: #e2e8f0 !important;
-  padding: 12px 20px !important;
-  transition: all 0.3s ease !important;
-}
-
-[data-testid="stTextInput"] input:focus {
-  border-color: #667eea !important;
-  box-shadow: 0 0 0 3px rgba(102,126,234,0.1) !important;
-  background: #1e1e3f !important;
-}
-
-[data-testid="stTextInput"] input::placeholder {
-  color: #64748b !important;
-  opacity: 0.8 !important;
-}
-
-/* Premium send button */
-.luminary-send-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-  border: none !important;
-  border-radius: 20px !important;
-  color: white !important;
-  font-weight: 600 !important;
+  padding: 0.7rem 1rem !important;
+  color: var(--text) !important;
+  -webkit-text-fill-color: var(--text) !important;
   font-size: 0.9rem !important;
-  padding: 12px 20px !important;
-  transition: all 0.3s ease !important;
-  box-shadow: 0 4px 12px rgba(102,126,234,0.3) !important;
+  opacity: 1 !important;
+}
+.stTextInput > div > div > input:focus,
+.stTextArea textarea:focus,
+[data-testid="stChatInput"] textarea:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px var(--primary-light) !important;
+  outline: none;
 }
 
-.luminary-send-btn:hover {
-  transform: translateY(-2px) !important;
-  box-shadow: 0 6px 16px rgba(102,126,234,0.4) !important;
+/* ── CHAT MESSAGES ── */
+[data-testid="stChatMessage"] .stMarkdown p {
+  color: var(--text) !important;
+}
+[data-testid="stChatMessage-user"] .stMarkdown {
+  background: var(--primary) !important;
+  border-radius: 24px 24px 4px 24px !important;
+  padding: 12px 18px !important;
+}
+[data-testid="stChatMessage-user"] .stMarkdown p {
+  color: white !important;
+  -webkit-text-fill-color: white !important;
+}
+[data-testid="stChatMessage-assistant"] .stMarkdown {
+  background: var(--bg-offset) !important;
+  border-left: 3px solid var(--primary) !important;
+  border-radius: 0 24px 24px 0 !important;
+  padding: 12px 18px !important;
+}
+
+/* ── LESSON CONTENT ── */
+.stMarkdown p,
+.stMarkdown li,
+.stMarkdown h1,
+.stMarkdown h2,
+.stMarkdown h3,
+.stMarkdown h4 {
+  color: var(--text) !important;
+}
+
+/* ── AUTH CARD ── */
+div[data-testid="stRadio"] label,
+div[data-testid="stRadio"] label p,
+div[data-testid="stRadio"] label span,
+div[data-baseweb="radio"] label,
+div[data-baseweb="radio"] label * {
+  color: var(--text) !important;
+  opacity: 1 !important;
+}
+div[data-testid="stRadio"] label[data-checked="true"],
+div[data-testid="stRadio"] label[aria-checked="true"] {
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
+  color: white !important;
+}
+div[data-testid="stRadio"] label[data-checked="true"] *,
+div[data-testid="stRadio"] label[aria-checked="true"] * {
+  color: white !important;
+  -webkit-text-fill-color: white !important;
+}
+div[data-testid="stForm"] input,
+div[data-testid="stForm"] label,
+div[data-testid="stForm"] label p {
+  color: var(--text) !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: var(--text) !important;
+}
+div[data-testid="stForm"] input::placeholder {
+  color: var(--text-muted) !important;
+  -webkit-text-fill-color: var(--text-muted) !important;
+  opacity: 0.7 !important;
+}
+div[data-testid="stForm"] button[kind="primaryFormSubmit"],
+div[data-testid="stForm"] button[kind="primary"] {
+  background: var(--primary) !important;
+  color: white !important;
+  -webkit-text-fill-color: white !important;
+  opacity: 1 !important;
+}
+[data-baseweb="input"] input,
+[data-baseweb="base-input"] input {
+  color: var(--text) !important;
+  -webkit-text-fill-color: var(--text) !important;
+  opacity: 1 !important;
+  background: white !important;
+}
+div[data-testid="stAlert"] p,
+div[data-testid="stAlert"] span {
+  opacity: 1 !important;
+  color: inherit !important;
+}
+
+/* ── DASHBOARD: st.metric transparency fix ── */
+[data-testid="stMetric"] {
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 16px !important;
+  padding: 1.2rem 1.4rem !important;
+  box-shadow: var(--shadow) !important;
+}
+[data-testid="stMetricLabel"],
+[data-testid="stMetricLabel"] p,
+[data-testid="stMetricLabel"] span {
+  color: var(--text-muted) !important;
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: var(--text-muted) !important;
+}
+[data-testid="stMetricValue"],
+[data-testid="stMetricValue"] p,
+[data-testid="stMetricValue"] span {
+  color: var(--text) !important;
+  font-size: 2rem !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: var(--text) !important;
+}
+[data-testid="stMetricDelta"],
+[data-testid="stMetricDelta"] p,
+[data-testid="stMetricDelta"] span {
+  opacity: 1 !important;
+  font-size: 0.78rem !important;
+  font-weight: 500 !important;
+}
+[data-testid="stMetricDelta"][data-direction="up"] svg,
+[data-testid="stMetricDelta"][data-direction="up"] span {
+  color: var(--success) !important;
+  -webkit-text-fill-color: var(--success) !important;
+}
+[data-testid="stMetricDelta"][data-direction="down"] svg,
+[data-testid="stMetricDelta"][data-direction="down"] span {
+  color: var(--primary) !important;
+  -webkit-text-fill-color: var(--primary) !important;
+}
+
+/* ── EXPANDER ── */
+[data-testid="stExpander"] {
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+/* ── CODE BLOCKS ── */
+.stMarkdown pre, .stMarkdown code {
+  background: #f8f9fa !important;
+  border-radius: 12px !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  color: var(--text) !important;
+}
+
+/* ── PROGRESS BARS ── */
+hr { border-color: var(--border) !important; margin: 1rem 0; }
+[data-testid="stProgress"] > div { background-color: var(--border2) !important; border-radius: 50px; }
+[data-testid="stProgress"] > div > div { background-color: var(--primary) !important; border-radius: 50px; }
+
+/* ── HIDE STREAMLIT CHROME ── */
+#MainMenu, footer, header, .stDeployButton, [data-testid="stToolbar"] { display: none !important; }
+
+/* ── PERSONAL TEACHER ── */
+.teacher-bar {
+  background: var(--bg-offset);
+  border-top: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 1.2rem 1.4rem;
+  margin-top: 2rem;
+  box-shadow: var(--shadow);
+}
+.teacher-bar [data-testid="stChatInput"] textarea {
+  background: white !important;
+  -webkit-text-fill-color: var(--text) !important;
 }
 </style>
 """)
 
-# ══════════════════════════════════════════════════════════════════════
-# COURSE CATALOG — 5 Flagship Courses (full curriculum)
-# ══════════════════════════════════════════════════════════════════════
+# ─── NEW 2026 COURSE CATALOG (8 courses, no emoji icons) ─────────────
 COURSES = {
-    "python": {
-        "id": "python",
-        "title": "Python for Everyone",
-        "tagline": "From scripting to production-grade data engineering",
-        "icon": "⟨⟩",
-        "color": "var(--azure)",
+    "mlops": {
+        "id": "mlops",
+        "title": "MLOps & LLMOps",
+        "tagline": "Operationalise AI models – the #1 scarce skill in 2026",
+        "difficulty": "Advanced",
+        "hours": 7,
+        "modules": [
+            {
+                "title": "CI/CD & Model Serving",
+                "topics": [
+                    {"title": "CI/CD pipelines for ML with GitHub Actions", "min": 40},
+                    {"title": "FastAPI for model serving", "min": 35},
+                    {"title": "Docker & Kubernetes for ML workloads", "min": 45},
+                    {"title": "MLflow for experiment tracking and registry", "min": 30},
+                ]
+            },
+            {
+                "title": "Monitoring & Observability",
+                "topics": [
+                    {"title": "Training monitoring with Weights & Biases", "min": 35},
+                    {"title": "Data drift detection with WhyLabs", "min": 30},
+                    {"title": "Model performance monitoring and alerting", "min": 30},
+                ]
+            },
+        ]
+    },
+    "llm_finetune": {
+        "id": "llm_finetune",
+        "title": "LLM Fine‑Tuning",
+        "tagline": "Custom models from pre‑trained bases – most hired AI skill",
+        "difficulty": "Advanced",
+        "hours": 6,
+        "modules": [
+            {
+                "title": "Foundational Techniques",
+                "topics": [
+                    {"title": "LoRA / QLoRA: theory and implementation", "min": 35},
+                    {"title": "Hugging Face Transformers for fine‑tuning", "min": 40},
+                    {"title": "Supervised Fine‑Tuning (SFT) on custom data", "min": 35},
+                ]
+            },
+            {
+                "title": "Advanced Alignment & Integration",
+                "topics": [
+                    {"title": "RLHF basics & preference alignment", "min": 35},
+                    {"title": "Quantization for efficient deployment", "min": 30},
+                    {"title": "RAG integration with fine‑tuned models", "min": 30},
+                    {"title": "OpenAI fine‑tune API practical", "min": 25},
+                ]
+            },
+        ]
+    },
+    "llm_scratch": {
+        "id": "llm_scratch",
+        "title": "Building an LLM from Scratch",
+        "tagline": "Transformer internals to pre‑training – deep architectural knowledge",
+        "difficulty": "Expert",
+        "hours": 9,
+        "modules": [
+            {
+                "title": "Transformer Architecture",
+                "topics": [
+                    {"title": "Tokenization: BPE, WordPiece, SentencePiece", "min": 35},
+                    {"title": "Self‑attention and multi‑head attention", "min": 40},
+                    {"title": "Positional encoding and embeddings", "min": 30},
+                    {"title": "Complete GPT architecture walkthrough", "min": 45},
+                ]
+            },
+            {
+                "title": "Pre‑training & Scaling",
+                "topics": [
+                    {"title": "Implementing a pre‑training loop", "min": 40},
+                    {"title": "Scaling laws and compute optimal training", "min": 30},
+                    {"title": "Evaluation benchmarks and perplexity", "min": 25},
+                ]
+            },
+        ]
+    },
+    "applied_ml": {
+        "id": "applied_ml",
+        "title": "Applied Machine Learning",
+        "tagline": "Practical ML for IT pros – skip theory, focus on real pipelines",
         "difficulty": "Intermediate",
-        "hours": 28,
+        "hours": 7,
         "modules": [
             {
-                "title": "Python Internals & Modern Syntax",
+                "title": "Core ML Pipelines",
                 "topics": [
-                    {"title": "Comprehensions, walrus operator, structural pattern matching", "min": 30},
-                    {"title": "Generators, itertools, and lazy evaluation pipelines", "min": 35},
-                    {"title": "Decorators: factory patterns, functools.wraps, class decorators", "min": 40},
-                    {"title": "Context managers: __enter__/__exit__ vs contextlib", "min": 30},
-                    {"title": "Type hints, Protocol, TypeVar, and runtime enforcement with beartype", "min": 35},
+                    {"title": "Supervised vs unsupervised learning – when to use what", "min": 30},
+                    {"title": "Feature engineering workshop", "min": 35},
+                    {"title": "Scikit‑learn pipelines", "min": 30},
+                    {"title": "XGBoost for tabular data", "min": 35},
+                    {"title": "Model selection & cross‑validation", "min": 25},
                 ]
             },
             {
-                "title": "Data Analysis with Pandas & NumPy",
+                "title": "Deployment & Responsibility",
                 "topics": [
-                    {"title": "Efficient DataFrame I/O: Parquet, Arrow, chunked CSV, SQL connectors", "min": 40},
-                    {"title": "GroupBy internals, transform vs apply, window functions", "min": 45},
-                    {"title": "MultiIndex operations and pivot/melt patterns for time-series", "min": 35},
-                    {"title": "Vectorised NumPy: broadcasting, einsum, and avoiding Python loops", "min": 40},
-                    {"title": "Memory profiling DataFrames and using polars as a drop-in upgrade", "min": 35},
-                ]
-            },
-            {
-                "title": "Data Cleaning & Processing",
-                "topics": [
-                    {"title": "Missing data patterns: MCAR, MAR, MNAR — imputation strategies", "min": 40},
-                    {"title": "String normalisation: regex, rapidfuzz, phonetic matching", "min": 35},
-                    {"title": "Schema validation with Pandera and Great Expectations", "min": 35},
-                    {"title": "Outlier detection: IQR, z-score, DBSCAN-based approaches", "min": 30},
-                    {"title": "Building repeatable ETL pipelines with Prefect or Dagster", "min": 45},
-                ]
-            },
-            {
-                "title": "Data Structures & Algorithms",
-                "topics": [
-                    {"title": "Time/space complexity: amortised analysis, Big-O in practice", "min": 40},
-                    {"title": "Heaps, deques, and Counter for competitive data problems", "min": 35},
-                    {"title": "Graph algorithms: BFS/DFS, Dijkstra, NetworkX for real data", "min": 45},
-                    {"title": "Bloom filters, LRU caches, and space-efficient probabilistic structures", "min": 35},
-                    {"title": "Solving LeetCode-style problems with Python idioms, not brute force", "min": 40},
-                ]
-            },
-            {
-                "title": "SQL & Databases",
-                "topics": [
-                    {"title": "Window functions: RANK, LAG/LEAD, NTILE with real datasets", "min": 45},
-                    {"title": "CTEs, recursive queries, and query plan reading (EXPLAIN ANALYZE)", "min": 40},
-                    {"title": "SQLAlchemy 2.x ORM: async sessions, Alembic migrations", "min": 45},
-                    {"title": "PostgreSQL JSONB, full-text search, and indexing strategies", "min": 40},
-                    {"title": "DuckDB for in-process analytics and Motherduck cloud queries", "min": 35},
-                ]
-            },
-            {
-                "title": "Data Visualisation",
-                "topics": [
-                    {"title": "Matplotlib internals: figure/axes objects, custom rcParams themes", "min": 35},
-                    {"title": "Plotly Express to Graph Objects: animations, subplots, custom traces", "min": 40},
-                    {"title": "Altair for declarative, grammar-of-graphics style charts", "min": 35},
-                    {"title": "Interactive dashboards with Streamlit + st.plotly_chart caching", "min": 40},
-                    {"title": "Datashader for billion-point datasets without downsampling", "min": 35},
-                ]
-            },
-            {
-                "title": "Web Scraping & APIs",
-                "topics": [
-                    {"title": "httpx async requests, rate limiting, and retry with tenacity", "min": 35},
-                    {"title": "Playwright/Selenium for JS-rendered pages and anti-bot evasion", "min": 45},
-                    {"title": "REST API design: pagination, auth, OpenAPI spec with FastAPI", "min": 40},
-                    {"title": "GraphQL clients with gql, introspection, and caching strategies", "min": 35},
-                    {"title": "Webhook receivers, OAuth2 flows, and API key rotation patterns", "min": 40},
+                    {"title": "Serving models with FastAPI / Docker", "min": 30},
+                    {"title": "Bias detection and fairness in ML", "min": 25},
                 ]
             },
         ]
     },
-    "ai_content": {
-        "id": "ai_content",
-        "title": "AI for Content Creation",
-        "tagline": "Master Claude, Gemini & agentic workflows for B2B growth",
-        "icon": "✦",
-        "color": "var(--gold)",
+    "ai_coding": {
+        "id": "ai_coding",
+        "title": "AI‑Assisted Coding",
+        "tagline": "Code faster with DeepSeek v4 & Claude – massive time‑saver",
         "difficulty": "Beginner",
-        "hours": 18,
+        "hours": 4,
         "modules": [
             {
-                "title": "Foundations of Generative AI",
+                "title": "AI‑Powered Development",
                 "topics": [
-                    {"title": "How LLMs work: tokens, context windows, and why temperature matters", "min": 25},
-                    {"title": "Prompt engineering taxonomy: zero-shot, few-shot, chain-of-thought", "min": 30},
-                    {"title": "Responsible AI: hallucination detection, source attribution, bias", "min": 25},
-                    {"title": "Choosing the right model: cost vs capability matrix for 2025-26", "min": 20},
-                ]
-            },
-            {
-                "title": "Mastering Claude for Professionals",
-                "topics": [
-                    {"title": "Claude as co-founder: strategy memos, market analysis, investor decks", "min": 35},
-                    {"title": "Claude for marketing: campaign briefs, persona creation, ad copy at scale", "min": 35},
-                    {"title": "Claude for finance: model summaries, board reports, scenario analysis", "min": 30},
-                    {"title": "Claude for coding: debugging, code review, architecture documentation", "min": 35},
-                    {"title": "Claude Projects & custom instructions for persistent context", "min": 30},
-                    {"title": "Claude connectors: SuperMetrics, Windsor.ai, HubSpot, Clay integration", "min": 40},
-                ]
-            },
-            {
-                "title": "Google Gemini & Workspace AI",
-                "topics": [
-                    {"title": "Gemini 1.5 Pro: multimodal inputs — analyse PDFs, images, spreadsheets", "min": 30},
-                    {"title": "NotebookLM for research synthesis and podcast-style summaries", "min": 25},
-                    {"title": "Gemini in Google Docs/Sheets: bulk content generation and analysis", "min": 30},
-                    {"title": "Google AI Studio: building and testing prompts with Gemini API", "min": 35},
-                ]
-            },
-            {
-                "title": "AI Content Workflows",
-                "topics": [
-                    {"title": "The Content Operating System: pillar → cluster → distribution", "min": 35},
-                    {"title": "Building a 30-day content calendar with AI in under 2 hours", "min": 30},
-                    {"title": "AI-assisted video scripts: hooks, structure, CTAs for B2B LinkedIn", "min": 30},
-                    {"title": "Personalisation at scale: 1-to-1 video messaging workflows", "min": 35},
-                ]
-            },
-            {
-                "title": "AI for Lead Generation & Sales",
-                "topics": [
-                    {"title": "Vibe Prospecting with Clay: find, enrich, and personalise outreach", "min": 40},
-                    {"title": "Windsor.ai + SuperMetrics: unify ad performance data for AI analysis", "min": 35},
-                    {"title": "HubSpot AI: scoring leads, writing sequences, forecasting pipeline", "min": 35},
-                    {"title": "Building an AI-powered outbound system end-to-end (free tools + paid)", "min": 45},
+                    {"title": "Prompt patterns for code generation", "min": 25},
+                    {"title": "Claude API for coding tasks", "min": 25},
+                    {"title": "DeepSeek v4 API and use cases", "min": 25},
+                    {"title": "AI code review workflows", "min": 20},
+                    {"title": "Agentic coding: multi‑file refactoring", "min": 30},
+                    {"title": "Test generation with AI", "min": 20},
                 ]
             },
         ]
     },
-    "mba": {
-        "id": "mba",
-        "title": "Micro MBA 2026",
-        "tagline": "Business strategy built for the AI-native economy",
-        "icon": "◈",
-        "color": "var(--rose)",
+    "cloud": {
+        "id": "cloud",
+        "title": "Cloud (AWS / Azure / GCP)",
+        "tagline": "#1 upskilling area for IT professionals in 2026",
+        "difficulty": "Intermediate",
+        "hours": 9,
+        "modules": [
+            {
+                "title": "Core Cloud Infrastructure",
+                "topics": [
+                    {"title": "AWS Solutions Architect essentials", "min": 40},
+                    {"title": "Azure AZ‑900 → AZ‑104 path", "min": 35},
+                    {"title": "Kubernetes (CKA) fundamentals", "min": 45},
+                    {"title": "Infrastructure as Code with Terraform", "min": 35},
+                ]
+            },
+            {
+                "title": "Serverless & AI Services",
+                "topics": [
+                    {"title": "Serverless functions (AWS Lambda, Cloud Run, Azure Functions)", "min": 35},
+                    {"title": "Cloud AI services: SageMaker, Azure AI, Vertex AI", "min": 30},
+                ]
+            },
+        ]
+    },
+    "databases": {
+        "id": "databases",
+        "title": "Databases for AI Workloads",
+        "tagline": "SQL to vector DBs – the missing link for data pipeline work",
+        "difficulty": "Intermediate",
+        "hours": 6,
+        "modules": [
+            {
+                "title": "SQL & NoSQL",
+                "topics": [
+                    {"title": "SQL fundamentals and advanced queries", "min": 30},
+                    {"title": "PostgreSQL for analytics", "min": 30},
+                    {"title": "MongoDB document model and aggregation pipeline", "min": 25},
+                ]
+            },
+            {
+                "title": "Vector Databases & Data Modeling",
+                "topics": [
+                    {"title": "Introduction to vector databases (Pinecone, Qdrant)", "min": 30},
+                    {"title": "Data modeling for AI/ML pipelines", "min": 25},
+                    {"title": "Indexing strategies for high‑dimensional data", "min": 20},
+                ]
+            },
+        ]
+    },
+    "software_eng": {
+        "id": "software_eng",
+        "title": "Modern Software Engineering",
+        "tagline": "System design, clean code, and architecture for senior roles",
         "difficulty": "Advanced",
-        "hours": 32,
+        "hours": 11,
         "modules": [
             {
-                "title": "Module 1 — AI & Data Strategy",
+                "title": "System Design & Patterns",
                 "topics": [
-                    {"title": "AI Fluency for Leaders: LLMs, Agentic AI, and Predictive Models decoded", "min": 40},
-                    {"title": "Data-driven decisions: Descriptive → Predictive → Prescriptive analytics", "min": 35},
-                    {"title": "Ethics & Governance: GDPR, India DPDP Act, and algorithmic bias audits", "min": 35},
-                    {"title": "Tech Stack Strategy: No-Code/Low-Code vs. enterprise custom builds", "min": 30},
-                    {"title": "AI ROI frameworks: measuring cost-per-query and value generated", "min": 35},
+                    {"title": "System design fundamentals", "min": 40},
+                    {"title": "Design patterns for maintainable code", "min": 35},
+                    {"title": "REST & GraphQL API design", "min": 30},
                 ]
             },
             {
-                "title": "Module 2 — Financial Intelligence",
+                "title": "Practices & Architecture",
                 "topics": [
-                    {"title": "Reading the story: Balance Sheet, P&L, and Cash Flow as a narrative", "min": 40},
-                    {"title": "Unit Economics 2.0: CAC, LTV, Payback Period in high-rate environments", "min": 45},
-                    {"title": "Burn rate modelling and runway extension strategies for startups", "min": 35},
-                    {"title": "FinTech & DeFi: wallets, blockchain basics, and business implications", "min": 30},
-                    {"title": "ESG & Sustainable Finance: Green Bonds, impact reporting frameworks", "min": 30},
-                ]
-            },
-            {
-                "title": "Module 3 — Modern Marketing",
-                "topics": [
-                    {"title": "The Infinite Funnel: why AIDA is dead and how Flywheels replaced it", "min": 35},
-                    {"title": "Performance vs. Brand Marketing: short-term ROI vs long-term equity", "min": 35},
-                    {"title": "Creator Economy & Influencer Strategy: micro vs macro, UGC playbooks", "min": 30},
-                    {"title": "Customer Experience Design: phygital journey mapping", "min": 35},
-                    {"title": "Community-led growth: Discord, Slack, and owned audience engines", "min": 30},
-                ]
-            },
-            {
-                "title": "Module 4 — Agile Strategy & Innovation",
-                "topics": [
-                    {"title": "Disruptive Innovation: Clay Christensen's Jobs-to-be-Done framework", "min": 35},
-                    {"title": "Platform Business Models: network effects and winner-takes-most dynamics", "min": 40},
-                    {"title": "Blue Ocean Shift: finding uncontested markets with value innovation canvas", "min": 35},
-                    {"title": "Circular Economy as strategy: design for reuse, repair, and loyalty", "min": 30},
-                ]
-            },
-            {
-                "title": "Module 5 — Operations & Supply Chain",
-                "topics": [
-                    {"title": "Lean Six Sigma Essentials: DMAIC and waste elimination in service ops", "min": 35},
-                    {"title": "Global Supply Chain Resilience: China+1 and geopolitical risk mapping", "min": 35},
-                    {"title": "Last-Mile Logistics: q-commerce economics and instant delivery models", "min": 30},
-                    {"title": "Operations KPIs: OEE, OTIF, and building real-time ops dashboards", "min": 30},
-                ]
-            },
-            {
-                "title": "Module 6 — Leadership 2.0",
-                "topics": [
-                    {"title": "Leading Remote/Hybrid Teams: async norms, culture over Zoom/Slack", "min": 30},
-                    {"title": "Negotiation masterclass: FBI Voss method vs Harvard principled method", "min": 40},
-                    {"title": "Emotional Intelligence: empathy mapping and managing high-performance burnout", "min": 35},
-                    {"title": "Capstone: 100-Day Turnaround memo using AI, finance, and brand pivot", "min": 60},
-                ]
-            },
-        ]
-    },
-    "ai_leadership": {
-        "id": "ai_leadership",
-        "title": "AI Leadership",
-        "tagline": "Executive curriculum for the agentic AI era",
-        "icon": "⬡",
-        "color": "var(--teal)",
-        "difficulty": "Advanced",
-        "hours": 24,
-        "modules": [
-            {
-                "title": "Module 1 — The New Intelligence Stack",
-                "topics": [
-                    {"title": "Beyond ChatGPT: Agentic AI — from chatbots that talk to agents that execute", "min": 35},
-                    {"title": "LLMs vs SLMs: why companies are moving to private small models (Llama, Phi)", "min": 30},
-                    {"title": "Build vs Buy vs Fine-tune: decision framework for enterprise AI adoption", "min": 35},
-                    {"title": "The 2026 AI landscape: Claude 4, GPT-5, Gemini Ultra — capability comparison", "min": 25},
-                ]
-            },
-            {
-                "title": "Module 2 — Economics of AI",
-                "topics": [
-                    {"title": "The AI P&L: calculating cost-per-query vs business value generated", "min": 40},
-                    {"title": "Tokenomics for leaders: why a 'free' pilot can bankrupt a department at scale", "min": 35},
-                    {"title": "AI's impact on company valuation: multiples, moats, and investor narratives", "min": 35},
-                    {"title": "Budgeting for AI: OpEx vs CapEx models, GPU costs, and cloud vs on-prem", "min": 30},
-                ]
-            },
-            {
-                "title": "Module 3 — Governance, Risk & Ethics",
-                "topics": [
-                    {"title": "The Shadow AI Problem: managing unauthorised tools leaking company data", "min": 35},
-                    {"title": "Regulatory landscape: EU AI Act compliance, India DPDP, and US executive orders", "min": 40},
-                    {"title": "Hallucination & Liability: Human-in-the-Loop protocols for high-stakes decisions", "min": 35},
-                    {"title": "Deepfakes & Security: protecting your brand from AI-generated impersonation", "min": 30},
-                    {"title": "AI Audit frameworks: logging, explainability, and model governance committees", "min": 35},
-                ]
-            },
-            {
-                "title": "Module 4 — Operationalising AI",
-                "topics": [
-                    {"title": "Escaping Pilot Purgatory: the 8 reasons AI pilots fail and how to avoid them", "min": 35},
-                    {"title": "RAG architecture: making AI read your internal PDFs/Excel sheets accurately", "min": 45},
-                    {"title": "Redesigning org charts: hybrid teams of humans and AI agents", "min": 35},
-                    {"title": "Advanced prompting for strategy: Chain-of-Thought, Tree-of-Thoughts, meta-prompting", "min": 40},
-                ]
-            },
-            {
-                "title": "Module 5 — Functional Transformation",
-                "topics": [
-                    {"title": "AI in Marketing: hyper-personalisation, 1-to-1 video at scale", "min": 35},
-                    {"title": "AI in Product & Engineering: no-code prototyping, AI code review, spec generation", "min": 35},
-                    {"title": "AI in HR: talent scouting, bias-free screening, and performance analytics", "min": 30},
-                    {"title": "Capstone: 90-Day AI Roadmap — workflow selection, cost model, governance plan", "min": 60},
-                ]
-            },
-        ]
-    },
-    "linkedin": {
-        "id": "linkedin",
-        "title": "LinkedIn Mastery",
-        "tagline": "Profile → audience → clients — the B2B growth system",
-        "icon": "◎",
-        "color": "var(--lime)",
-        "difficulty": "Beginner",
-        "hours": 12,
-        "modules": [
-            {
-                "title": "Phase 1 — Profile Optimisation",
-                "topics": [
-                    {"title": "Banner strategy: communicating your value proposition in 3 seconds", "min": 25},
-                    {"title": "Headline formula: Role | Specific Outcome | Unique Method — with 10 examples", "min": 30},
-                    {"title": "About section: the 5-part narrative that converts profile visitors to leads", "min": 30},
-                    {"title": "Featured section goldmine: 'Start Here' post, testimonial, and lead magnet", "min": 25},
-                    {"title": "Experience section as social proof: metrics, outcomes, and client results", "min": 25},
-                ]
-            },
-            {
-                "title": "Phase 2 — Content Strategy",
-                "topics": [
-                    {"title": "The 2026 algorithm decoded: Saves and Reposts > Likes, long-tail post lifespan", "min": 30},
-                    {"title": "The 3-2-1 Content Rule: Knowledge posts, Opinion posts, Personal posts", "min": 35},
-                    {"title": "Writing viral hooks: 8 proven opening frameworks with before/after examples", "min": 35},
-                    {"title": "Carousel (PDF) creation: structure, design principles, and CTA placement", "min": 30},
-                    {"title": "AI-assisted content: using Claude to write LinkedIn posts in your voice", "min": 35},
-                ]
-            },
-            {
-                "title": "Phase 3 — Audience Growth",
-                "topics": [
-                    {"title": "The Comment Strategy: identifying 10 big creators and the value-comment formula", "min": 35},
-                    {"title": "Follower growth benchmarks: what 1K, 5K, 10K actually requires", "min": 25},
-                    {"title": "Newsletter vs company page: which builds more leverage for B2B", "min": 25},
-                    {"title": "Cross-platform amplification: Twitter/X, YouTube Shorts, and newsletter loops", "min": 30},
-                ]
-            },
-            {
-                "title": "Phase 4 — Client Acquisition",
-                "topics": [
-                    {"title": "Inbound strategy: CTA placement, DM funnels, and lead magnet design", "min": 35},
-                    {"title": "The Connection Loop: outbound DM sequence that never feels spammy", "min": 35},
-                    {"title": "Sales Navigator essentials: Boolean search, lead lists, and alert workflows", "min": 35},
-                    {"title": "Closing in the DMs: the 5-message framework from connection to call booked", "min": 40},
-                    {"title": "Case study: 0 to 10 qualified B2B leads per month in 90 days", "min": 30},
+                    {"title": "Git workflows & trunk‑based development", "min": 25},
+                    {"title": "Testing strategy: unit, integration, e2e", "min": 30},
+                    {"title": "Microservices architecture patterns", "min": 35},
+                    {"title": "DSA for technical interviews", "min": 40},
                 ]
             },
         ]
     },
 }
 
-# ══════════════════════════════════════════════════════════════════════
-# STATIC CODING TASKS
-# ══════════════════════════════════════════════════════════════════════
+# ─── STATIC CODING TASKS (unused now but kept for compatibility) ──────
 BEGINNER_TASKS = [
-    {
-        "title": "Print 1 to 5",
-        "question": "Print numbers from 1 to 5.",
-        "solution": "for i in range(1,6):\n    print(i)",
-        "expected_output": "1\n2\n3\n4\n5",
-        "hints": "Use a for loop with range"
-    },
-    {
-        "title": "Even Numbers",
-        "question": "Print even numbers from 1 to 10.",
-        "solution": "for i in range(1,11):\n    if i%2==0:\n        print(i)",
-        "expected_output": "2\n4\n6\n8\n10",
-        "hints": "Check i % 2 == 0"
-    },
-    {
-        "title": "Sum 1 to 5",
-        "question": "Print sum of numbers from 1 to 5.",
-        "solution": "total=0\nfor i in range(1,6):\n    total+=i\nprint(total)",
-        "expected_output": "15",
-        "hints": "Use accumulator variable"
-    },
-    {
-        "title": "String Length",
-        "question": "Print length of 'hello'.",
-        "solution": "print(len('hello'))",
-        "expected_output": "5",
-        "hints": "Use len()"
-    },
-    {
-        "title": "Reverse String",
-        "question": "Print reverse of 'abc'.",
-        "solution": "print('abc'[::-1])",
-        "expected_output": "cba",
-        "hints": "Use slicing"
-    },
-    {
-        "title": "List Items",
-        "question": "Print all elements in list [1,2,3].",
-        "solution": "for i in [1,2,3]:\n    print(i)",
-        "expected_output": "1\n2\n3",
-        "hints": "Loop through list"
-    },
-    {
-        "title": "Positive Check",
-        "question": "Print 'Positive' if x=5.",
-        "solution": "x=5\nif x>0:\n    print('Positive')",
-        "expected_output": "Positive",
-        "hints": "Use if condition"
-    },
-    {
-        "title": "Square Numbers",
-        "question": "Print squares of 1 to 3.",
-        "solution": "for i in range(1,4):\n    print(i*i)",
-        "expected_output": "1\n4\n9",
-        "hints": "Multiply number by itself"
-    },
-    {
-        "title": "List Length",
-        "question": "Print length of [1,2,3,4].",
-        "solution": "print(len([1,2,3,4]))",
-        "expected_output": "4",
-        "hints": "Use len()"
-    },
-    {
-        "title": "Hello World",
-        "question": "Print 'Hello World'.",
-        "solution": "print('Hello World')",
-        "expected_output": "Hello World",
-        "hints": "Use print()"
-    }
+    {"title": "Hello, World!", "description": "Print 'Hello, World!' to the console.", "expected_output": "Hello, World!", "difficulty": "beginner"},
+    {"title": "Sum of Two Numbers", "description": "Given a=5, b=7, print their sum.", "expected_output": "12", "difficulty": "beginner"},
+    {"title": "String Length", "description": "Print the length of the string 'AI Tutor'.", "expected_output": "8", "difficulty": "beginner"},
 ]
-
 INTERMEDIATE_TASKS = [
-    {
-        "title": "Filter Even List",
-        "question": "Print even numbers from [1,2,3,4].",
-        "solution": "for i in [1,2,3,4]:\n    if i%2==0:\n        print(i)",
-        "expected_output": "2\n4",
-        "hints": "Use loop + condition"
-    },
-    {
-        "title": "Dictionary Access",
-        "question": "Print value of key 'a' from {'a':1,'b':2}.",
-        "solution": "print({'a':1,'b':2}['a'])",
-        "expected_output": "1",
-        "hints": "Use dictionary key"
-    },
-    {
-        "title": "List Comprehension",
-        "question": "Print squares of 1 to 3 using list comprehension.",
-        "solution": "print([i*i for i in range(1,4)])",
-        "expected_output": "[1, 4, 9]",
-        "hints": "Use comprehension"
-    },
-    {
-        "title": "Count Vowels",
-        "question": "Count vowels in 'hello'.",
-        "solution": "s='hello'\nv='aeiou'\nprint(sum(1 for c in s if c in v))",
-        "expected_output": "2",
-        "hints": "Loop through string"
-    },
-    {
-        "title": "Max Value",
-        "question": "Print max from [1,5,2].",
-        "solution": "print(max([1,5,2]))",
-        "expected_output": "5",
-        "hints": "Use max()"
-    },
-    {
-        "title": "Sum List",
-        "question": "Print sum of [1,2,3].",
-        "solution": "print(sum([1,2,3]))",
-        "expected_output": "6",
-        "hints": "Use sum()"
-    },
-    {
-        "title": "Uppercase",
-        "question": "Convert 'hi' to uppercase.",
-        "solution": "print('hi'.upper())",
-        "expected_output": "HI",
-        "hints": "Use upper()"
-    },
-    {
-        "title": "Filter Dictionary",
-        "question": "Print names where age<=30.",
-        "solution": "data=[{'name':'A','age':25},{'name':'B','age':40}]\nfor d in data:\n    if d['age']<=30:\n        print(d['name'])",
-        "expected_output": "A",
-        "hints": "Loop and filter"
-    },
-    {
-        "title": "Sort List",
-        "question": "Sort [3,1,2].",
-        "solution": "lst=[3,1,2]\nlst.sort()\nprint(lst)",
-        "expected_output": "[1, 2, 3]",
-        "hints": "Use sort()"
-    },
-    {
-        "title": "Unique Values",
-        "question": "Print unique values of [1,1,2].",
-        "solution": "print(list(set([1,1,2])))",
-        "expected_output": "[1, 2]",
-        "hints": "Use set()"
-    }
+    {"title": "FizzBuzz", "description": "Print numbers 1-20 separated by spaces. For multiples of 3 print 'Fizz', 5 print 'Buzz', both print 'FizzBuzz'.", "expected_output": "1 2 Fizz 4 Buzz Fizz 7 8 Fizz Buzz 11 Fizz 13 14 FizzBuzz 16 17 Fizz 19 Buzz", "difficulty": "intermediate"},
+    {"title": "List Reversal", "description": "Reverse the list [1,2,3,4,5] and print it.", "expected_output": "[5, 4, 3, 2, 1]", "difficulty": "intermediate"},
 ]
-
 ADVANCED_TASKS = [
-    {
-        "title": "Match Case",
-        "question": "Check if x=10 is int using match-case.",
-        "solution": "x=10\nmatch x:\n    case int():\n        print('Integer')",
-        "expected_output": "Integer",
-        "hints": "Use match-case"
-    },
-    {
-        "title": "Lambda Sort",
-        "question": "Sort [(1,3),(2,1)] by second value.",
-        "solution": "lst=[(1,3),(2,1)]\nlst.sort(key=lambda x:x[1])\nprint(lst)",
-        "expected_output": "[(2, 1), (1, 3)]",
-        "hints": "Use lambda"
-    },
-    {
-        "title": "Try Except",
-        "question": "Handle division by zero.",
-        "solution": "try:\n    print(1/0)\nexcept:\n    print('Error')",
-        "expected_output": "Error",
-        "hints": "Use try-except"
-    },
-    {
-        "title": "Generator",
-        "question": "Print numbers 1 to 3 using generator.",
-        "solution": "def g():\n    for i in range(1,4):\n        yield i\nfor i in g():\n    print(i)",
-        "expected_output": "1\n2\n3",
-        "hints": "Use yield"
-    },
-    {
-        "title": "Decorator",
-        "question": "Create decorator printing 'Start'.",
-        "solution": "def d(f):\n    def w():\n        print('Start')\n        f()\n    return w\n@d\ndef t():\n    print('Hi')\nt()",
-        "expected_output": "Start\nHi",
-        "hints": "Wrap function"
-    },
-    {
-        "title": "Zip Lists",
-        "question": "Combine [1,2] and [3,4].",
-        "solution": "print(list(zip([1,2],[3,4])))",
-        "expected_output": "[(1, 3), (2, 4)]",
-        "hints": "Use zip()"
-    },
-    {
-        "title": "Flatten List",
-        "question": "Flatten [[1,2],[3,4]].",
-        "solution": "print([i for sub in [[1,2],[3,4]] for i in sub])",
-        "expected_output": "[1, 2, 3, 4]",
-        "hints": "Nested loop"
-    },
-    {
-        "title": "Map Function",
-        "question": "Double numbers using map.",
-        "solution": "print(list(map(lambda x:x*2,[1,2])))",
-        "expected_output": "[2, 4]",
-        "hints": "Use map"
-    },
-    {
-        "title": "Reduce Sum",
-        "question": "Sum [1,2,3] using reduce.",
-        "solution": "from functools import reduce\nprint(reduce(lambda a,b:a+b,[1,2,3]))",
-        "expected_output": "6",
-        "hints": "Use reduce"
-    },
-    {
-        "title": "Enumerate",
-        "question": "Print index and value of ['a','b'].",
-        "solution": "for i,v in enumerate(['a','b']):\n    print(i,v)",
-        "expected_output": "0 a\n1 b",
-        "hints": "Use enumerate"
-    }
+    {"title": "Recursive Fibonacci", "description": "Print the 10th Fibonacci number (starting 0,1,...).", "expected_output": "55", "difficulty": "advanced"},
 ]
-
-TASKS = {
-    "beginner": BEGINNER_TASKS,
-    "intermediate": INTERMEDIATE_TASKS,
-    "advanced": ADVANCED_TASKS
-}
+TASKS = {"beginner": BEGINNER_TASKS, "intermediate": INTERMEDIATE_TASKS, "advanced": ADVANCED_TASKS}
 
 def get_random_task(difficulty):
-    """Get a random task from the specified difficulty level."""
     import random
     difficulty = difficulty.lower()
     if difficulty not in TASKS:
         difficulty = "beginner"
-    tasks = TASKS[difficulty]
-    return random.choice(tasks)
+    return random.choice(TASKS[difficulty])
 
-# ══════════════════════════════════════════════════════════════════════
-# GROQ CLIENT
-# ══════════════════════════════════════════════════════════════════════
+# ─── GROQ CLIENT ──────────────────────────────────────────────────────
 @st.cache_resource
 def _get_client():
     if not GROQ_API_KEY:
-        raise RuntimeError("Set GROQ_API_KEY in Streamlit secrets or .env")
+        raise RuntimeError("Set GROQ_API_KEY in secrets or .env")
     return Groq(api_key=GROQ_API_KEY)
 
 def _compose_messages(messages, system):
-    return [{"role": "system", "content": system}, *messages]
+    return [{"role": "system", "content": system}] + messages
 
-def _call_llm(messages, system="You are an expert tutor. Be precise, practical, and thorough.",
-              max_tokens=1800, temp=0.5):
+def _call_llm(messages, system="You are an expert tutor.", max_tokens=1800, temp=0.5):
     try:
         client = _get_client()
         resp = client.chat.completions.create(
@@ -1034,17 +571,11 @@ def _stream_llm(messages, system, max_tokens=2000):
     except Exception as e:
         yield f"[Streaming error: {e}]"
 
-
 def _extract_json_array(raw: str):
     raw = raw.strip()
-    if raw.startswith("[LLM error:"):
-        return None
-
-    raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.MULTILINE)
-    raw = raw.strip()
-    if not raw:
-        return None
-
+    if raw.startswith("[LLM error:"): return None
+    raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.MULTILINE).strip()
+    if not raw: return None
     try:
         return json.loads(raw)
     except Exception:
@@ -1056,421 +587,224 @@ def _extract_json_array(raw: str):
                 pass
     return None
 
-# ══════════════════════════════════════════════════════════════════════
-# SESSION STATE
-# ══════════════════════════════════════════════════════════════════════
+# ─── SESSION STATE ────────────────────────────────────────────────────
 _DEFAULTS = dict(
     authenticated=False, user_id=None, user_name=None, user_username=None,
-    page="catalog",
-    active_course=None, active_module_idx=0, active_topic_idx=0,
-    active_mode=None,
-    chat_messages={},
-    progress={},
+    page="catalog", active_course=None, active_module_idx=0, active_topic_idx=0,
+    active_mode="lesson",
+    chat_messages={}, progress={},
     mcq_questions=[], mcq_answers={}, mcq_submitted=False, mcq_results=None,
     selected_task=None, user_code="", code_eval=None, code_submitted=False,
     code_difficulty="Beginner", new_task_selected=False,
-    luminary_messages=[], luminary_input="",
     topic_content_cache={},
+    guide_messages=[],
+    guide_messages_loaded=False,
 )
-
 for k, v in _DEFAULTS.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-# ══════════════════════════════════════════════════════════════════════
-# DB (Supabase — STRICT MODE required)
-# ══════════════════════════════════════════════════════════════════════
+# ─── DATABASE ─────────────────────────────────────────────────────────
 @st.cache_resource
 def _supabase():
-    if not SUPABASE_URL or not SUPABASE_KEY:
-        return None
-    try:
-        from supabase import create_client
-        return create_client(SUPABASE_URL, SUPABASE_KEY)
-    except: return None
+    if not SUPABASE_URL or not SUPABASE_KEY: return None
+    from supabase import create_client
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def require_db():
-    """STRICT MODE: App cannot run without DB"""
     sb = _supabase()
     if not sb:
-        st.error("🚨 Database not connected. Check Supabase secrets in .env or Streamlit secrets.")
+        st.error("🚨 Database not connected. Check Supabase secrets.")
         st.stop()
     return sb
 
-# ══════════════════════════════════════════════════════════════════════
-# DATABASE SERVICE LAYER (Single source of truth)
-# ══════════════════════════════════════════════════════════════════════
-
 def db():
-    """Get database connection (strict mode)"""
     return require_db()
 
-# ---------- USERS ----------
+def db_save_guide_message(uid, role, content):
+    try:
+        db().table("personal_guide").insert({
+            "user_id": uid, "role": role, "content": content,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }).execute()
+    except Exception:
+        pass
+
+def db_load_guide_messages(uid):
+    try:
+        res = db().table("personal_guide").select("role,content,created_at")\
+                  .eq("user_id", uid).order("created_at").execute()
+        return res.data or []
+    except Exception:
+        return []
+
 def db_create_user(uid, username, password_hash, name):
-    """Create new user"""
     try:
         return db().table("users").insert({
-            "id": uid,
-            "username": username,
-            "password_hash": password_hash,
-            "name": name,
-            "created_at": datetime.now(UTC).isoformat()
+            "id": uid, "username": username,
+            "password_hash": password_hash, "name": name,
+            "created_at": datetime.now(timezone.utc).isoformat()
         }).execute()
     except Exception as e:
-        st.error(f"Error creating user: {str(e)}")
+        st.error(f"Error creating user: {e}")
         return None
 
 def db_get_user(username):
-    """Get user by username"""
     try:
         res = db().table("users").select("*").eq("username", username).execute()
         return res.data[0] if res.data else None
-    except Exception as e:
-        st.error(f"Error fetching user: {str(e)}")
+    except Exception:
         return None
 
 def db_get_user_by_id(uid):
-    """Get user by ID"""
     try:
         res = db().table("users").select("*").eq("id", uid).execute()
         return res.data[0] if res.data else None
-    except Exception as e:
-        st.error(f"Error fetching user: {str(e)}")
+    except Exception:
         return None
 
-# ---------- CHAT ----------
 def db_save_chat(uid, topic, role, content):
-    """Save chat message"""
     try:
         return db().table("chat_history").insert({
-            "user_id": uid,
-            "topic": topic,
-            "role": role,
-            "content": content,
-            "created_at": datetime.now(UTC).isoformat()
+            "user_id": uid, "topic": topic, "role": role,
+            "content": content, "created_at": datetime.now(timezone.utc).isoformat()
         }).execute()
-    except Exception as e:
-        st.error(f"Error saving chat: {str(e)}")
+    except Exception:
         return None
 
 def db_load_chat(uid, topic):
-    """Load chat history for a user and topic"""
     try:
-        res = db().table("chat_history")\
-            .select("*")\
-            .eq("user_id", uid)\
-            .eq("topic", topic)\
-            .order("created_at")\
-            .execute()
+        res = db().table("chat_history").select("*").eq("user_id", uid)\
+                  .eq("topic", topic).order("created_at").execute()
         return res.data or []
-    except Exception as e:
-        st.error(f"Error loading chat: {str(e)}")
+    except Exception:
         return []
 
-# ---------- PROGRESS ----------
 def get_topic_subtopic_names(course_id, module_idx, topic_idx):
-    """Extract topic and subtopic names from course structure indices"""
-    try:
-        course = COURSES.get(course_id)
-        if not course:
-            st.warning(f"⚠️ Course '{course_id}' not found in COURSES")
-            return None, None
-
-        if module_idx >= len(course["modules"]):
-            st.error(f"⚠️ Module index {module_idx} out of range for course '{course_id}'")
-            return None, None
-
-        module = course["modules"][module_idx]
-
-        if topic_idx >= len(module["topics"]):
-            st.error(f"⚠️ Topic index {topic_idx} out of range for module '{module['title']}'")
-            return None, None
-
-        topic = module["topics"][topic_idx]
-        return module["title"], topic["title"]
-
-    except (KeyError, TypeError) as e:
-        st.error(f"⚠️ Error extracting topic/subtopic: {type(e).__name__}: {str(e)}")
-        return None, None
+    course = COURSES.get(course_id)
+    if not course or module_idx >= len(course["modules"]): return None, None
+    module = course["modules"][module_idx]
+    if topic_idx >= len(module["topics"]): return None, None
+    return module["title"], module["topics"][topic_idx]["title"]
 
 def db_save_progress(uid, topic, subtopic, status, score=None):
-    """Save or update topic progress to database (aligned with schema: topic + subtopic)"""
     try:
-        # Validate inputs
-        if not uid or not topic or not subtopic or not status:
-            st.error(f"❌ Invalid progress save: uid={bool(uid)}, topic={bool(topic)}, subtopic={bool(subtopic)}, status={bool(status)}")
-            return None
-
         payload = {
-            "user_id": uid,
-            "topic": topic,
-            "subtopic": subtopic,
-            "status": status,
-            "score": score,
-            "completed_at": datetime.now(UTC).isoformat() if status == "completed" else None,
+            "user_id": uid, "topic": topic, "subtopic": subtopic,
+            "status": status, "score": score,
+            "completed_at": datetime.now(timezone.utc).isoformat() if status == "completed" else None
         }
-
-        result = db().table("topic_progress").upsert(
-            payload,
-            on_conflict="user_id,topic,subtopic"
+        return db().table("topic_progress").upsert(
+            payload, on_conflict="user_id,topic,subtopic"
         ).execute()
-
-        # Validate result
-        if not result or not result.data:
-            st.warning(f"⚠️ Upsert returned empty result for {subtopic}")
-            return None
-
-        print(f"✓ Saved progress: {topic} → {subtopic} = {status} ({score}%)")
-        return result
-
-    except Exception as e:
-        st.error(f"❌ Error saving progress: {type(e).__name__}: {str(e)}")
+    except Exception:
         return None
 
 def db_get_progress(uid):
-    """Get all progress records for a user from database"""
     try:
-        res = db().table("topic_progress")\
-            .select("*")\
-            .eq("user_id", uid)\
-            .execute()
+        res = db().table("topic_progress").select("*").eq("user_id", uid).execute()
         return res.data or []
-    except Exception as e:
-        st.error(f"Error loading progress: {str(e)}")
+    except Exception:
         return []
 
-# ---------- MCQ ----------
-def db_save_mcq(uid, topic, question, selected, correct):
-    """
-    Save a single MCQ attempt to the mcq_attempts table.
-    Called once per question after quiz submission.
-    """
-    if not uid:
-        print("⚠️ db_save_mcq: missing uid, skipping")
-        return None
-    if not topic or not question:
-        print("⚠️ db_save_mcq: missing topic or question, skipping")
-        return None
+def db_get_progress_dict(uid):
+    prog_list = db_get_progress(uid)
+    return {
+        f"{r['topic']}:{r['subtopic']}": {"status": r["status"], "score": r.get("score")}
+        for r in prog_list
+    }
+
+def _sync_progress_from_db(uid):
     try:
-        result = db().table("mcq_attempts").insert({
-            "user_id": uid,
-            "topic": topic,
-            "question": question,
-            "selected_answer": selected,
-            "correct_answer": correct,
+        pdict = db_get_progress_dict(uid)
+        st.session_state.progress = pdict
+        return pdict
+    except Exception:
+        return st.session_state.get("progress", {})
+
+def _save_and_sync_progress(uid, course_id, module_idx, topic_idx, status, score=None):
+    topic, subtopic = get_topic_subtopic_names(course_id, module_idx, topic_idx)
+    if not (topic and subtopic): return False
+    if not db_save_progress(uid, topic, subtopic, status, score): return False
+    _sync_progress_from_db(uid)
+    return True
+
+def course_progress_pct(uid, course_id):
+    prog = st.session_state.get("progress")
+    if prog is None:
+        prog = db_get_progress_dict(uid)
+    course = COURSES.get(course_id)
+    if not course: return 0
+    total = sum(len(m["topics"]) for m in course["modules"])
+    if total == 0: return 0
+    done = sum(
+        1 for m in course["modules"]
+        for t in m["topics"]
+        if prog.get(f"{m['title']}:{t['title']}", {}).get("status") == "completed"
+    )
+    return round(done / total * 100)
+
+def restore_user_session(uid):
+    user = db_get_user_by_id(uid)
+    if user:
+        st.session_state.update(
+            authenticated=True, user_id=uid,
+            user_name=user["name"], user_username=user["username"]
+        )
+        _sync_progress_from_db(uid)
+        return True
+    return False
+
+def db_save_mcq(uid, topic, question, selected, correct):
+    try:
+        return db().table("mcq_attempts").insert({
+            "user_id": uid, "topic": topic, "question": question,
+            "selected_answer": selected, "correct_answer": correct,
             "is_correct": selected == correct,
-            "attempted_at": datetime.now(UTC).isoformat()
+            "attempted_at": datetime.now(timezone.utc).isoformat()
         }).execute()
-        print(f"✓ MCQ attempt saved: topic={topic}, correct={selected == correct}")
-        return result
-    except Exception as e:
-        st.error(f"Error saving MCQ attempt: {str(e)}")
+    except Exception:
         return None
 
-# ---------- CODE ----------
 def db_save_code(uid, topic, code, passed, feedback="", score=None):
-    """
-    Save a code submission attempt to the code_attempts table.
-    Called after eval_code() completes — both on Run and Submit.
-    """
-    if not uid:
-        print("⚠️ db_save_code: missing uid, skipping")
-        return None
-    if not topic:
-        print("⚠️ db_save_code: missing topic, skipping")
-        return None
     try:
         payload = {
-            "user_id": uid,
-            "topic": topic,
-            "submitted_code": code,
-            "test_passed": bool(passed),
-            "feedback": feedback or "",
-            "attempted_at": datetime.now(UTC).isoformat()
+            "user_id": uid, "topic": topic, "submitted_code": code,
+            "test_passed": bool(passed), "feedback": feedback,
+            "attempted_at": datetime.now(timezone.utc).isoformat()
         }
         if score is not None:
             payload["score"] = int(score)
-        result = db().table("code_attempts").insert(payload).execute()
-        print(f"✓ Code attempt saved: topic={topic}, passed={passed}, score={score}")
-        return result
-    except Exception as e:
-        st.error(f"Error saving code attempt: {str(e)}")
+        return db().table("code_attempts").insert(payload).execute()
+    except Exception:
         return None
 
-# ══════════════════════════════════════════════════════════════════════
-# AUTH (Using DB service layer)
-# ══════════════════════════════════════════════════════════════════════
+# ─── AUTHENTICATION ───────────────────────────────────────────────────
 def _hash(pw):
     return hashlib.sha256(pw.encode()).hexdigest()
 
 def auth_signup(username, password, name):
-    """Create new user account and init progress"""
-    try:
-        if db_get_user(username):
-            return None, "Username already exists"
-        uid = str(uuid.uuid4())
-        db_create_user(uid, username, _hash(password), name)
+    if db_get_user(username): return None, "Username already exists"
+    uid = str(uuid.uuid4())
+    if db_create_user(uid, username, _hash(password), name):
         st.session_state.progress = {}
         return uid, None
-    except Exception as e:
-        return None, str(e)
+    return None, "Could not create user"
 
 def auth_login(username, password):
-    """Authenticate user and sync progress"""
-    try:
-        user = db_get_user(username)
-        if not user:
-            return None, None, "User not found"
-        if user["password_hash"] != _hash(password):
-            return None, None, "Incorrect password"
-        uid = user["id"]
-        _sync_progress_from_db(uid)
-        return uid, user["name"], None
-    except Exception as e:
-        return None, None, str(e)
+    user = db_get_user(username)
+    if not user: return None, None, "User not found"
+    if user["password_hash"] != _hash(password): return None, None, "Incorrect password"
+    uid = user["id"]
+    _sync_progress_from_db(uid)
+    return uid, user["name"], None
 
-# Legacy wrapper for progress (uses DB service layer)
-def db_progress_upsert(uid, course_id, mod_idx, topic_idx, status, score=None):
-    """Legacy wrapper - extracts topic/subtopic names and delegates to service layer"""
-    topic, subtopic = get_topic_subtopic_names(course_id, mod_idx, topic_idx)
-    if topic and subtopic:
-        return db_save_progress(uid, topic, subtopic, status, score)
-    return None
+# ─── SCORING ──────────────────────────────────────────────────────────
+def _compute_mcq_score(correct, total): return round((correct / total) * 100) if total else 0
+def _compute_code_score(passed, total): return round((passed / total) * 100) if total else 0
+def _score_to_status(score): return "completed" if score >= 70 else "in_progress"
 
-def db_get_progress_dict(uid):
-    """Convert progress records from database into a dictionary for fast lookups"""
-    progress_list = db_get_progress(uid)
-    progress_dict = {}
-    for row in progress_list:
-        key = f"{row['topic']}:{row['subtopic']}"
-        progress_dict[key] = {"status": row["status"], "score": row.get("score")}
-    return progress_dict
-
-def _sync_progress_from_db(uid):
-    """
-    CRITICAL: Reload all progress from database into session state.
-    Safely handles errors without clearing existing state.
-    """
-    try:
-        progress_dict = db_get_progress_dict(uid)
-        if progress_dict is None:
-            st.warning("⚠️ Failed to sync progress from database")
-            return st.session_state.get("progress", {})
-        st.session_state.progress = progress_dict
-        print(f"✓ Synced {len(progress_dict)} progress records for user")
-        return progress_dict
-    except Exception as e:
-        st.error(f"❌ Error syncing progress from database: {type(e).__name__}: {str(e)}")
-        return st.session_state.get("progress", {})
-
-def _save_and_sync_progress(uid, course_id, module_idx, topic_idx, status, score=None):
-    """
-    PRODUCTION CRITICAL: Save progress to database AND immediately sync back.
-    Returns True if successful, False if any step failed.
-    """
-    if not uid:
-        print("⚠️ _save_and_sync_progress: missing uid")
-        return False
-    try:
-        topic, subtopic = get_topic_subtopic_names(course_id, module_idx, topic_idx)
-        if not (topic and subtopic):
-            st.error("Could not extract topic/subtopic names")
-            return False
-
-        result = db_save_progress(uid, topic, subtopic, status, score)
-        if not result:
-            st.error("Failed to save progress to database. Changes may not persist.")
-            return False
-
-        _sync_progress_from_db(uid)
-        return True
-    except Exception as e:
-        st.error(f"Error in progress tracking system: {str(e)}")
-        return False
-
-def course_progress_pct(uid, course_id):
-    """Calculate course completion percentage (uses session state + DB fallback)"""
-    try:
-        prog = st.session_state.get("progress", {})
-        if not prog:
-            prog = db_get_progress_dict(uid)
-
-        course = COURSES.get(course_id)
-        if not course:
-            st.warning(f"⚠️ Course '{course_id}' not found")
-            return 0
-
-        total = sum(len(m["topics"]) for m in course["modules"])
-        if total == 0:
-            return 0
-
-        done = 0
-        for m_i, module in enumerate(course["modules"]):
-            for t_i, topic_item in enumerate(module["topics"]):
-                module_title = module["title"]
-                topic_title = topic_item["title"]
-                key = f"{module_title}:{topic_title}"
-                if prog.get(key, {}).get("status") == "completed":
-                    done += 1
-
-        pct = round(done / total * 100)
-        return pct
-
-    except Exception as e:
-        st.error(f"❌ Error calculating progress: {type(e).__name__}: {str(e)}")
-        return 0
-
-def restore_user_session(uid):
-    """🔄 Restore user session from DB after page refresh"""
-    try:
-        user = db_get_user_by_id(uid)
-        if user:
-            st.session_state.update(
-                authenticated=True,
-                user_id=uid,
-                user_name=user["name"],
-                user_username=user["username"]
-            )
-            _sync_progress_from_db(uid)
-            return True
-    except Exception as e:
-        st.error(f"Error restoring session: {str(e)}")
-    return False
-
-# ══════════════════════════════════════════════════════════════════════
-# SCORING HELPERS
-# ══════════════════════════════════════════════════════════════════════
-
-def _compute_mcq_score(correct_count: int, total_questions: int) -> int:
-    """
-    Compute integer MCQ score (0–100). Safe against division by zero.
-    correct_count: number of correct answers
-    total_questions: total questions in quiz
-    """
-    if total_questions <= 0:
-        return 0
-    return round((correct_count / total_questions) * 100)
-
-def _compute_code_score(passed_tests: int, total_tests: int) -> int:
-    """
-    Compute integer code score (0–100). Safe against division by zero.
-    passed_tests: number of tests that passed
-    total_tests: total number of tests
-    """
-    if total_tests <= 0:
-        return 0
-    return round((passed_tests / total_tests) * 100)
-
-def _score_to_status(score: int) -> str:
-    """
-    Map numeric score to progress status.
-    >= 70 → completed, else → in_progress
-    """
-    return "completed" if score >= 70 else "in_progress"
-
-# ══════════════════════════════════════════════════════════════════════
-# AI GENERATION HELPERS
-# ══════════════════════════════════════════════════════════════════════
+# ─── AI GENERATION ────────────────────────────────────────────────────
 def get_topic_content(course_id, mod_idx, topic_idx):
     key = f"{course_id}:{mod_idx}:{topic_idx}"
     if key in st.session_state.topic_content_cache:
@@ -1478,17 +812,14 @@ def get_topic_content(course_id, mod_idx, topic_idx):
     course = COURSES[course_id]
     module = course["modules"][mod_idx]
     topic  = module["topics"][topic_idx]["title"]
-    course_title = course["title"]
-    sys = (
-        f"You are a world-class instructor teaching '{course_title}'. "
-        "Your lessons are deeply practical, current to 2025-26, and contain real examples. "
-        "Never be vague. Always include code, frameworks, or concrete tactics. "
-        "Structure: 1) Core concept (2-3 paragraphs) 2) Real-world application 3) Code/framework/template "
+    system = (
+        f"You are a world-class instructor teaching '{course['title']}'. "
+        "Lessons: 1) Core concept (2-3 paragraphs) 2) Real-world application 3) Code/template "
         "4) Common mistakes 5) Key takeaways (3 bullets). Use markdown."
     )
     content = _call_llm(
         [{"role": "user", "content": f"Teach me: **{topic}**\nModule: {module['title']}"}],
-        system=sys, max_tokens=2000, temp=0.4
+        system=system, max_tokens=2000, temp=0.4
     )
     st.session_state.topic_content_cache[key] = content
     return content
@@ -1497,1360 +828,741 @@ def gen_mcq(course_id, mod_idx, topic_idx, n=5):
     course = COURSES[course_id]
     module = course["modules"][mod_idx]
     topic  = module["topics"][topic_idx]["title"]
-    sys = "You are a rigorous exam writer. Return ONLY valid JSON array, no markdown fences, no explanation."
+    system = "You are a rigorous exam writer. Return ONLY a valid JSON array, no markdown fences."
     prompt = (
-        f"Write {n} MCQ questions testing deep understanding of: '{topic}'\n"
-        f"Course context: {course['title']} — {module['title']}\n"
-        "Each question must test application or analysis, NOT mere recall.\n"
-        'Return JSON array: [{"question":"...","options":{"A":"...","B":"...","C":"...","D":"..."},'
-        '"correct":"B","explanation":"2-sentence explanation of why B is correct"}]'
+        f"Write {n} MCQ questions on: '{topic}'\nCourse: {course['title']} — {module['title']}\n"
+        "Each question must test application or analysis. JSON format: "
+        '[{"question":"...","options":{"A":"...","B":"...","C":"...","D":"..."},'
+        '"correct":"B","explanation":"..."}]'
     )
-    for attempt in range(2):
-        raw = _call_llm([{"role":"user","content":prompt}], system=sys, max_tokens=1500, temp=0.3)
+    for _ in range(2):
+        raw = _call_llm([{"role": "user", "content": prompt}], system=system, max_tokens=1500, temp=0.3)
         questions = _extract_json_array(raw)
-        if isinstance(questions, list):
-            return questions
-        if attempt == 0:
-            continue
+        if isinstance(questions, list): return questions
     return []
 
-# ══════════════════════════════════════════════════════════════════════
-# CODE EXECUTION ENGINE
-# ══════════════════════════════════════════════════════════════════════
+# ─── CODE EXECUTION (kept for potential future use) ──────────────────
 def _run_code(source: str) -> dict:
-    """Execute Python source in a sandboxed namespace. Returns real stdout/traceback."""
     ns = {}
     stdout_buf = io.StringIO()
     stderr_buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(stdout_buf), contextlib.redirect_stderr(stderr_buf):
             exec(compile(source, "<student>", "exec"), ns)
-        return {
-            "ok":         True,
-            "stdout":     stdout_buf.getvalue(),
-            "stderr":     stderr_buf.getvalue(),
-            "traceback":  "",
-            "error_type": "",
-            "error_msg":  "",
-        }
+        return {"ok": True, "stdout": stdout_buf.getvalue(), "stderr": stderr_buf.getvalue(),
+                "traceback": "", "error_type": "", "error_msg": ""}
     except Exception as exc:
         full_tb = tb_module.format_exc()
-        lines = full_tb.splitlines()
-        clean = [l for l in lines if 'exec(compile' not in l and '_run_code' not in l]
-        return {
-            "ok":         False,
-            "stdout":     stdout_buf.getvalue(),
-            "stderr":     stderr_buf.getvalue(),
-            "traceback":  "\n".join(clean),
-            "error_type": type(exc).__name__,
-            "error_msg":  str(exc),
-        }
+        clean = [l for l in full_tb.splitlines()
+                 if 'exec(compile' not in l and '_run_code' not in l]
+        return {"ok": False, "stdout": stdout_buf.getvalue(), "stderr": stderr_buf.getvalue(),
+                "traceback": "\n".join(clean), "error_type": type(exc).__name__, "error_msg": str(exc)}
 
-# ══════════════════════════════════════════════════════════════════════
-# MAIN EVAL ENTRY POINT
-# ══════════════════════════════════════════════════════════════════════
 def eval_code(task: dict, code: str) -> dict:
-    """
-    Returns:
-      ok            : bool
-      stdout        : str  — real program output
-      traceback     : str  — real Python traceback (empty on success)
-      interpretation: str  — explanation of what happened
-      fix           : str  — fix suggestion (empty on success)
-      correct       : bool — whether output matches expected
-    """
     if not code.strip():
-        return {
-            "ok": False, "stdout": "", "traceback": "",
-            "interpretation": "No code submitted.",
-            "fix": "Write your solution in the editor.",
-            "correct": False
-        }
-
-    # ── Syntax check (fast path — no exec needed) ──────────────────
+        return {"ok": False, "stdout": "", "traceback": "",
+                "interpretation": "No code submitted.",
+                "fix": "Write your solution in the editor.", "correct": False}
     try:
         ast.parse(code)
     except SyntaxError:
-        return {
-            "ok":             False,
-            "stdout":         "",
-            "traceback":      "⚠️ Syntax error detected. Please check your code structure and try again.",
-            "interpretation": "Code contains syntax errors that prevent execution.",
-            "fix":            "Fix the syntax error and try again.",
-            "correct":        False
-        }
-
-    # ── Execute ─────────────────────────────────────────────────────
+        return {"ok": False, "stdout": "", "traceback": "⚠️ Syntax error detected.",
+                "interpretation": "Code contains syntax errors.",
+                "fix": "Fix the syntax error.", "correct": False}
     run = _run_code(code)
-
-    # ── Validate output ─────────────────────────────────────────────
     actual_output = run["stdout"].strip()
     expected_output = task.get("expected_output", "").strip()
     correct = actual_output == expected_output
-
     if run["ok"]:
-        if correct:
-            interpretation = f"Your code executed successfully and produced the correct output: {actual_output}"
-            fix = ""
-        else:
-            interpretation = f"Your code executed but produced: {actual_output}. Expected: {expected_output}"
-            fix = f"Check your logic. The output should be: {expected_output}"
+        interpretation = (f"✅ Correct! Output: {actual_output}" if correct
+                          else f"Output: `{actual_output}` — Expected: `{expected_output}`")
+        fix = "" if correct else "Adjust your logic to match the expected output."
     else:
-        interpretation = "Code execution failed with a runtime error."
-        fix = "Fix the runtime error and try again."
+        interpretation = "Runtime error."
+        fix = "Fix the error and rerun."
+    return {"ok": run["ok"], "stdout": run["stdout"],
+            "traceback": run["traceback"] if not run["ok"] else "",
+            "interpretation": interpretation, "fix": fix, "correct": correct}
 
-    return {
-        "ok":             run["ok"],
-        "stdout":         run["stdout"],
-        "traceback":      run["traceback"] if not run["ok"] else "",
-        "interpretation": interpretation,
-        "fix":            fix,
-        "correct":        correct
-    }
-
-
-def stream_tutor(course_id, messages_list):
-    course = COURSES.get(course_id, {})
-    sys = (
-        f"You are an expert tutor for '{course.get('title','this course')}'. "
-        "You give precise, practical answers with examples and code where relevant. "
-        "Be direct and thorough. Use markdown for formatting."
+# ─── UI HELPERS ───────────────────────────────────────────────────────
+def _tag(text, color="var(--primary)"):
+    return (
+        f'<span style="display:inline-flex;align-items:center;'
+        f'background:{color}18;color:{color};border:1px solid {color}30;'
+        f'border-radius:4px;padding:1px 7px;font-size:0.65rem;font-weight:600;">{text}</span>'
     )
-    return _stream_llm(messages_list, sys, max_tokens=2000)
 
-# ══════════════════════════════════════════════════════════════════════
-# UI HELPERS
-# ══════════════════════════════════════════════════════════════════════
-def _tag(text, color="var(--gold)"):
-    return (f'<span style="display:inline-flex;align-items:center;background:{color}18;'
-            f'color:{color};border:1px solid {color}30;border-radius:4px;padding:1px 7px;'
-            f'font-size:0.6rem;font-weight:600;letter-spacing:0.06em;white-space:nowrap;">'
-            f'{text}</span>')
+def _diff_badge(difficulty):
+    colors = {"Beginner": "#16a34a", "Intermediate": "#d97706", "Advanced": "#dc2626", "Expert": "#7c3aed"}
+    return _tag(difficulty, colors.get(difficulty, "var(--primary)"))
 
-def _diff_color(d):
-    return {"Beginner": "var(--lime)", "Intermediate": "var(--azure)",
-            "Advanced": "var(--rose)"}.get(d, "var(--gold)")
+def _progress_bar_html(pct, height="4px"):
+    return (
+        f'<div style="background:var(--border);border-radius:50px;height:{height};overflow:hidden;">'
+        f'<div style="width:{pct}%;height:100%;background:var(--primary);'
+        f'transition:width 0.4s ease;border-radius:50px;"></div></div>'
+    )
 
-# ══════════════════════════════════════════════════════════════════════
-# PAGE: AUTH
-# ══════════════════════════════════════════════════════════════════════
+# ─── PAGE: AUTH ───────────────────────────────────────────────────────
 def page_auth():
-    _render_html("""
-    <style>
-    [data-testid="stAppViewContainer"] > .main {
-      display:flex !important; align-items:center !important;
-      justify-content:center !important; min-height:100vh !important;
-    }
-    [data-testid="stAppViewContainer"] > .main > .block-container {
-      padding:0 !important; max-width:420px !important;
-    }
-    </style>
-    """)
-
-    st.markdown("""
-    <div style="background:var(--ink2);border-radius:16px;padding:2.4rem 2rem 2rem;
-                border:1px solid var(--rule);box-shadow:0 32px 80px rgba(0,0,0,0.65);
-                margin-bottom:1rem;">
-      <div style="text-align:center;margin-bottom:2rem;">
-        <div style="font-family:'Cormorant Garamond',serif;font-size:2.4rem;color:var(--gold);
-                    letter-spacing:0.05em;line-height:1;">◈</div>
-        <div style="font-family:'Cormorant Garamond',serif;font-size:1.6rem;color:var(--cream);
-                    font-weight:400;margin-top:4px;">Luminary</div>
-        <div style="font-size:0.72rem;color:var(--cream3);margin-top:4px;letter-spacing:0.04em;">
-          Premium AI-Powered Learning Platform
+    _, col, _ = st.columns([1, 1.2, 1])
+    with col:
+        st.markdown("""
+        <div style="text-align:center; padding: 2rem 0 1rem;">
+            <div style="font-size:2rem; color:var(--primary);">◈</div>
+            <div style="font-size:1.8rem; font-weight:600; margin-bottom:0.5rem;
+                        color:var(--text);">TEACHER.AI</div>
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1.5rem;">
+                An Advanced learning system with Awareness
+            </div>
         </div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
-    try:
-        require_db()
-    except:
-        st.error("🚨 Cannot connect to database. Please check your Supabase configuration.")
-        st.stop()
+        if not _supabase():
+            st.error("🚨 Database not available. Configure Supabase environment variables.")
+            st.stop()
 
-    mode = st.radio("mode", ["Sign In", "Create Account"], horizontal=True,
-                    label_visibility="collapsed")
-
-    with st.form("auth_form"):
-        if mode == "Create Account":
-            dname = st.text_input("Full Name", placeholder="Ada Lovelace")
-        uname = st.text_input("Username", placeholder="ada_lovelace")
-        pwd   = st.text_input("Password", type="password", placeholder="••••••••")
-        ok    = st.form_submit_button(
-            "Create Account →" if mode == "Create Account" else "Sign In →",
-            use_container_width=True, type="primary")
-
-    if ok:
-        if not uname or not pwd:
-            st.error("Fill in all fields."); return
-        with st.spinner("Authenticating…"):
+        mode = st.radio("mode", ["Sign In", "Create Account"], horizontal=True, label_visibility="collapsed")
+        with st.form("auth_form"):
+            dname = ""
             if mode == "Create Account":
-                if not dname.strip(): st.error("Enter your name."); return
-                uid, err = auth_signup(uname.strip().lower(), pwd, dname.strip())
-                if err: st.error(err); return
-                st.session_state.update(authenticated=True, user_id=uid,
-                                         user_username=uname.strip().lower(),
-                                         user_name=dname.strip())
-                st.success(f"Welcome, {dname.strip()}! Account created.")
-            else:
-                uid, nm, err = auth_login(uname.strip().lower(), pwd)
-                if err: st.error(err); return
-                st.session_state.update(authenticated=True, user_id=uid,
-                                         user_username=uname.strip().lower(),
-                                         user_name=nm or uname)
-                st.success(f"Welcome back, {nm or uname}!")
-        st.rerun()
+                dname = st.text_input("Full Name", placeholder="Ada Lovelace")
+            uname = st.text_input("Username", placeholder="username")
+            pwd   = st.text_input("Password", type="password", placeholder="••••••••")
+            ok    = st.form_submit_button(
+                "Create Account →" if mode == "Create Account" else "Sign In →",
+                use_container_width=True, type="primary"
+            )
 
-# ══════════════════════════════════════════════════════════════════════
-# PAGE: COURSE CATALOG
-# ══════════════════════════════════════════════════════════════════════
+        if ok:
+            if not uname or not pwd:
+                st.error("Fill in all fields.")
+            elif mode == "Create Account":
+                if not dname.strip():
+                    st.error("Enter your name.")
+                else:
+                    with st.spinner("Creating account…"):
+                        uid, err = auth_signup(uname.strip().lower(), pwd, dname.strip())
+                        if err: st.error(err)
+                        else:
+                            st.session_state.update(
+                                authenticated=True, user_id=uid,
+                                user_username=uname.strip().lower(),
+                                user_name=dname.strip()
+                            )
+                            st.rerun()
+            else:
+                with st.spinner("Signing in…"):
+                    uid, nm, err = auth_login(uname.strip().lower(), pwd)
+                    if err: st.error(err)
+                    else:
+                        st.session_state.update(
+                            authenticated=True, user_id=uid,
+                            user_username=uname.strip().lower(),
+                            user_name=nm or uname
+                        )
+                        st.rerun()
+
+# ─── PAGE: CATALOG ────────────────────────────────────────────────────
 def page_catalog():
     uid  = st.session_state.user_id
     name = st.session_state.user_name or "there"
 
-    _render_html("""
-    <style>
-    [data-testid="stSidebar"] { display: none !important; }
-    section[data-testid="stSidebar"] + .main .block-container { padding-left: 1.4rem !important; }
-    </style>
-    """)
-
     st.markdown(f"""
-    <div style="padding:2.8rem 0 2rem;border-bottom:1px solid var(--rule);margin-bottom:2.2rem;">
-      <div style="font-family:'Cormorant Garamond',serif;font-size:0.75rem;color:var(--gold);
-                  letter-spacing:0.22em;text-transform:uppercase;margin-bottom:8px;">
-        Welcome back, {name}
-      </div>
-      <div style="font-family:'Cormorant Garamond',serif;font-size:3rem;color:var(--cream);
-                  font-weight:300;line-height:1.1;margin-bottom:10px;">
-        Your Learning<br><em style="color:var(--gold);">Curriculum</em>
-      </div>
-      <div style="font-size:0.82rem;color:var(--cream3);max-width:520px;line-height:1.7;">
-        Five flagship courses built for 2026 — practical, AI-native, and drawn from knowledge that
-        most platforms haven't caught up to yet.
-      </div>
+    <div style="padding:2rem 0 1rem; border-bottom:1px solid var(--border); margin-bottom:1.5rem;">
+        <div style="font-size:0.7rem; color:var(--primary); text-transform:uppercase;
+                    letter-spacing:0.1em;">Welcome back, {name}</div>
+        <div style="font-size:2.8rem; font-weight:500; line-height:1.1; margin-bottom:6px;
+                    color:var(--text);">Your Learning<br>
+            <em style="color:var(--primary);">Curriculum</em></div>
+        <div style="font-size:0.85rem; color:var(--text-muted); max-width:520px;">
+            An Advanced learning system with Awareness
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
-    cids = list(COURSES.keys())
-    rows = [cids[:2], cids[2:4], cids[4:]]
-    for row in rows:
-        cols = st.columns(len(row), gap="large")
-        for col, cid in zip(cols, row):
-            c = COURSES[cid]
-            pct  = course_progress_pct(uid, cid)
-            diff_c = _diff_color(c["difficulty"])
+    courses_items = list(COURSES.items())
+    for i in range(0, len(courses_items), 2):
+        row = courses_items[i:i+2]
+        cols = st.columns(len(row), gap="medium")
+        for col, (cid, c) in zip(cols, row):
+            pct = course_progress_pct(uid, cid)
             total_topics = sum(len(m["topics"]) for m in c["modules"])
-
             with col:
                 st.markdown(f"""
-                <div style="background:var(--ink2);border-radius:14px;padding:1.5rem 1.4rem 1rem;
-                            border:1px solid var(--rule);position:relative;overflow:hidden;
-                            transition:border-color 0.2s;margin-bottom:4px;">
-                  <div style="position:absolute;top:0;left:0;right:0;height:2px;
-                              background:linear-gradient(90deg,{c['color']},{c['color']}44);"></div>
-                  <div style="display:flex;align-items:flex-start;justify-content:space-between;
-                              margin-bottom:0.9rem;">
-                    <div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;
-                                color:{c['color']};line-height:1;">{c['icon']}</div>
-                  </div>
-                  <div style="font-family:'Cormorant Garamond',serif;font-size:1.25rem;
-                              color:var(--cream);font-weight:400;margin-bottom:4px;
-                              line-height:1.2;">{c['title']}</div>
-                  <div style="font-size:0.75rem;color:var(--cream3);line-height:1.5;
-                              margin-bottom:1rem;">{c['tagline']}</div>
-                  <div style="display:flex;gap:12px;margin-bottom:0.9rem;">
-                    <div style="font-size:0.68rem;color:var(--cream3);">
-                      <span style="color:var(--cream2);font-weight:600;">{len(c['modules'])}</span> modules
+                <div style="background:var(--card); border-radius:20px;
+                            padding:1rem 1rem 0.8rem; border:1px solid var(--border);
+                            position:relative; overflow:hidden; margin-bottom:4px;
+                            box-shadow:var(--shadow);">
+                    <div style="position:absolute;top:0;left:0;right:0;
+                                height:3px;background:var(--primary);"></div>
+                    <div style="font-size:1rem; font-weight:600;
+                                color:var(--text);">{c['title']}</div>
+                    <div style="font-size:0.7rem; color:var(--text-muted);
+                                margin-bottom:0.6rem;">{c['tagline']}</div>
+                    <div style="display:flex; gap:10px; margin-bottom:0.6rem;
+                                font-size:0.65rem; color:var(--text-muted);">
+                        <div><strong>{len(c['modules'])}</strong> modules</div>
+                        <div><strong>{total_topics}</strong> topics</div>
+                        <div><strong>{c['hours']}h</strong></div>
                     </div>
-                    <div style="font-size:0.68rem;color:var(--cream3);">
-                      <span style="color:var(--cream2);font-weight:600;">{total_topics}</span> topics
+                    <div style="display:flex;justify-content:space-between;
+                                font-size:0.6rem;color:var(--text-muted);margin-bottom:4px;">
+                        <span>Progress</span>
+                        <span style="color:var(--primary);font-weight:600;">{pct}%</span>
                     </div>
-                    <div style="font-size:0.68rem;color:var(--cream3);">
-                      <span style="color:var(--cream2);font-weight:600;">{c['hours']}h</span>
-                    </div>
-                  </div>
-                  <div style="margin-bottom:0.5rem;">
-                    <div style="display:flex;justify-content:space-between;font-size:0.65rem;
-                                color:var(--cream3);margin-bottom:3px;">
-                      <span>Progress</span><span style="color:{c['color']}">{pct}%</span>
-                    </div>
-                    <div style="background:var(--ink4);border-radius:50px;height:2px;overflow:hidden;">
-                      <div style="width:{pct}%;height:100%;background:{c['color']};border-radius:50px;"></div>
-                    </div>
-                  </div>
+                    {_progress_bar_html(pct)}
                 </div>
                 """, unsafe_allow_html=True)
-
                 label = "Continue →" if pct > 0 else "Start Course →"
                 if st.button(label, key=f"cat_{cid}", use_container_width=True,
                              type="primary" if pct > 0 else "secondary"):
                     st.session_state.update(
                         active_course=cid, page="course",
                         active_module_idx=0, active_topic_idx=0,
-                        active_mode=None, mcq_questions=[], mcq_answers={},
+                        active_mode="lesson",
+                        mcq_questions=[], mcq_answers={},
                         mcq_submitted=False, mcq_results=None,
-                        selected_task=None, code_eval=None, code_submitted=False, user_code=""
+                        selected_task=None, code_eval=None,
+                        code_submitted=False, user_code=""
                     )
                     st.rerun()
 
-    st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
-    c1, c2, _ = st.columns([1, 1, 4])
-    with c1:
-        if st.button("⊗ Sign Out", use_container_width=True):
-            for k in list(st.session_state.keys()): del st.session_state[k]
-            for k2, v2 in _DEFAULTS.items(): st.session_state[k2] = v2
-            st.rerun()
-    with c2:
-        if st.button("◈ Dashboard", use_container_width=True):
-            st.session_state.page = "dashboard"; st.rerun()
-
-# ══════════════════════════════════════════════════════════════════════
-# SIDEBAR
-# ══════════════════════════════════════════════════════════════════════
-def render_sidebar():
+# ─── COURSE SIDEBAR (with sign‑out at bottom) ───────────────────────
+def render_course_sidebar():
+    uid = st.session_state.user_id
     cid = st.session_state.active_course
-    if not cid: return
-    course = COURSES[cid]
-    uid    = st.session_state.user_id
 
     with st.sidebar:
+        # User header
         st.markdown(f"""
-        <div style="padding:0.6rem 0 0.8rem;">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-            <span style="font-family:'Cormorant Garamond',serif;font-size:1.4rem;
-                         color:{course['color']};">{course['icon']}</span>
-            <div>
-              <div style="color:var(--cream);font-weight:600;font-size:0.83rem;line-height:1.1;">
-                {course['title']}
-              </div>
-              <div style="color:var(--cream3);font-size:0.65rem;">{st.session_state.user_name}</div>
-            </div>
-          </div>
+        <div style="padding:0.8rem 0 0.6rem;">
+            <div style="font-weight:600; font-size:0.85rem; color:var(--text);">
+                {st.session_state.user_name}</div>
+            <div style="color:var(--text-muted); font-size:0.65rem;">
+                TEACHER.AI</div>
         </div>
         """, unsafe_allow_html=True)
 
-        if st.button("← All Courses", use_container_width=True):
-            st.session_state.update(active_course=None, page="catalog"); st.rerun()
-        if st.button("◈ Dashboard", use_container_width=True):
-            st.session_state.page = "dashboard"; st.rerun()
-
-        st.divider()
-
-        pct = course_progress_pct(uid, cid)
-        st.markdown(f"""
-        <div style="margin-bottom:10px;">
-          <div style="display:flex;justify-content:space-between;font-size:0.65rem;
-                      color:var(--cream3);margin-bottom:3px;">
-            <span>Course progress</span>
-            <span style="color:{course['color']};font-weight:600;">{pct}%</span>
-          </div>
-          <div style="background:var(--ink4);border-radius:50px;height:2px;overflow:hidden;">
-            <div style="width:{pct}%;height:100%;background:{course['color']};border-radius:50px;"></div>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        prog  = db_get_progress_dict(uid)
-        cur_m = st.session_state.active_module_idx
-        cur_t = st.session_state.active_topic_idx
-
-        for m_i, module in enumerate(course["modules"]):
-            done_m = sum(1 for t_i in range(len(module["topics"]))
-                         if prog.get(f"{cid}:{m_i}:{t_i}", {}).get("status") == "completed")
-            total_m = len(module["topics"])
-            active_m = m_i == cur_m
-
+        # Course navigation (if inside a course)
+        if cid and cid in COURSES:
+            course = COURSES[cid]
             st.markdown(f"""
-            <div style="background:{'rgba(200,169,110,0.06)' if active_m else 'transparent'};
-                        border-radius:6px;padding:5px 7px;margin-bottom:2px;
-                        border:1px solid {'var(--gold)44' if active_m else 'transparent'};">
-              <div style="font-size:0.67rem;font-weight:600;color:{'var(--gold2)' if active_m else 'var(--cream3)'};
-                          margin-bottom:2px;line-height:1.3;">{module['title'][:38]}</div>
-              <div style="font-size:0.6rem;color:var(--cream3);">{done_m}/{total_m} done</div>
+            <div style="padding:0.4rem 0 0.6rem; border-top:1px solid var(--border);">
+                <div style="font-weight:600; font-size:0.8rem; color:var(--text);">
+                    {course['title']}</div>
             </div>
             """, unsafe_allow_html=True)
 
-            if active_m:
-                for t_i, topic in enumerate(module["topics"]):
-                    key   = f"{cid}:{m_i}:{t_i}"
-                    done  = prog.get(key, {}).get("status") == "completed"
-                    active_t = t_i == cur_t
-                    icon_c = "✓" if done else ("▶" if active_t else "·")
-                    col   = ("var(--lime)" if done else
-                             (course["color"] if active_t else "var(--cream3)"))
-                    st.markdown(f"""
-                    <div style="padding:3px 6px 3px 12px;margin-bottom:1px;">
-                      <div style="display:flex;gap:6px;align-items:flex-start;">
-                        <span style="color:{col};font-size:0.62rem;flex-shrink:0;margin-top:1px;">{icon_c}</span>
-                        <div style="font-size:0.71rem;color:{col};line-height:1.35;">
-                          {topic['title'][:50]}
-                        </div>
-                      </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    if st.button(f"Go", key=f"nav_{m_i}_{t_i}", use_container_width=True):
-                        st.session_state.update(
-                            active_module_idx=m_i, active_topic_idx=t_i,
-                            active_mode=None, mcq_questions=[], mcq_answers={},
-                            mcq_submitted=False, mcq_results=None,
-                            selected_task=None, code_eval=None, code_submitted=False, user_code=""
-                        )
-                        st.rerun()
-
-        st.divider()
-        if st.button("⊗ Sign Out", use_container_width=True):
-            for k in list(st.session_state.keys()): del st.session_state[k]
-            for k2, v2 in _DEFAULTS.items(): st.session_state[k2] = v2
-            st.rerun()
-
-# ══════════════════════════════════════════════════════════════════════
-# MODE: LESSON
-# ══════════════════════════════════════════════════════════════════════
-def render_lesson():
-    cid   = st.session_state.active_course
-    m_i   = st.session_state.active_module_idx
-    t_i   = st.session_state.active_topic_idx
-    course = COURSES[cid]
-    module = course["modules"][m_i]
-    topic  = module["topics"][t_i]
-    uid    = st.session_state.user_id
-
-    # Mark lesson as completed when user views it (score=100 — reading is full credit)
-    topic_name, subtopic_name = get_topic_subtopic_names(cid, m_i, t_i)
-    if topic_name and subtopic_name:
-        progress_key = f"{topic_name}:{subtopic_name}"
-        current_progress = st.session_state.get("progress", {})
-        if progress_key not in current_progress or current_progress.get(progress_key, {}).get("status") != "completed":
-            _save_and_sync_progress(uid, cid, m_i, t_i, "completed", score=100)
-
-    st.markdown(f"""
-    <div style="display:flex;align-items:center;gap:9px;padding:0.7rem 1rem;
-                background:var(--ink2);border-radius:10px;border:1px solid var(--rule);
-                margin-bottom:0.8rem;border-left:3px solid var(--gold);">
-      <div>
-        <div style="font-size:0.86rem;font-weight:600;color:var(--cream);">Lesson</div>
-        <div style="font-size:0.7rem;color:var(--cream3);">{topic['title'][:60]}</div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    key = f"{cid}:{m_i}:{t_i}"
-    cached = st.session_state.topic_content_cache.get(key)
-    if not cached:
-        with st.spinner("Generating lesson…"):
-            content = get_topic_content(cid, m_i, t_i)
-    else:
-        content = cached
-
-    st.markdown(f"""
-    <div style="background:var(--ink2);border-radius:10px;padding:1.2rem 1.3rem;
-                border:1px solid var(--rule);margin-bottom:0.8rem;">
-    """, unsafe_allow_html=True)
-    st.markdown(content)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown("""
-    <div style="font-size:0.6rem;font-weight:600;color:var(--cream3);text-transform:uppercase;
-                letter-spacing:0.1em;margin-bottom:6px;">Ask a follow-up question</div>
-    """, unsafe_allow_html=True)
-
-    topic_key = f"{cid}:{m_i}:{t_i}"
-
-    chat_from_db = db_load_chat(uid, topic_key)
-
-    for msg in chat_from_db[-6:]:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
-
-    user_q = st.chat_input("Ask anything about this topic…")
-    if user_q:
-        db_save_chat(uid, topic_key, "user", user_q)
-
-        context_sys = (
-            f"You are an expert in '{topic['title']}' within the course '{course['title']}'. "
-            f"Answer with precision, examples, and code where relevant. Be concise but thorough."
-        )
-        api_messages = [{"role": m["role"], "content": m["content"]} for m in chat_from_db[-8:]]
-        api_messages.append({"role": "user", "content": user_q})
-
-        with st.chat_message("assistant"):
-            resp = st.write_stream(_stream_llm(api_messages, context_sys, max_tokens=1500))
-
-        db_save_chat(uid, topic_key, "assistant", resp)
-        st.rerun()
-
-# ══════════════════════════════════════════════════════════════════════
-# MODE: QUIZ  — FIX: real scoring + save mcq_attempts per question
-# ══════════════════════════════════════════════════════════════════════
-def render_quiz():
-    cid   = st.session_state.active_course
-    m_i   = st.session_state.active_module_idx
-    t_i   = st.session_state.active_topic_idx
-    course = COURSES[cid]
-    module = course["modules"][m_i]
-    topic  = module["topics"][t_i]
-    uid    = st.session_state.user_id
-
-    st.markdown(f"""
-    <div style="display:flex;align-items:center;gap:9px;padding:0.7rem 1rem;
-                background:var(--ink2);border-radius:10px;border:1px solid var(--rule);
-                margin-bottom:0.8rem;border-left:3px solid var(--gold);">
-      <div>
-        <div style="font-size:0.86rem;font-weight:600;color:var(--cream);">Knowledge Check</div>
-        <div style="font-size:0.7rem;color:var(--cream3);">{topic['title'][:60]}</div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if not st.session_state.mcq_questions:
-        _, col, _ = st.columns([1, 2, 1])
-        with col:
-            nq = st.slider("Questions", 3, 8, 5)
-            if st.button("Generate Quiz →", type="primary", use_container_width=True):
-                with st.spinner("Crafting questions…"):
-                    qs = gen_mcq(cid, m_i, t_i, nq)
-                if qs:
-                    st.session_state.mcq_questions = qs; st.rerun()
-                else:
-                    st.error("Generation failed. Please retry.")
-        return
-
-    qs   = st.session_state.mcq_questions
-    ans  = st.session_state.mcq_answers
-    done = st.session_state.mcq_submitted
-    answered = len(ans)
-    pct  = int(answered / len(qs) * 100) if qs else 0
-
-    st.markdown(f"""
-    <div style="display:flex;align-items:center;gap:10px;padding:6px 10px;
-                background:var(--ink2);border-radius:7px;border:1px solid var(--rule);
-                margin-bottom:0.8rem;">
-      <div style="font-size:0.7rem;color:var(--cream3);">{answered}/{len(qs)}</div>
-      <div style="flex:1;background:var(--ink4);border-radius:50px;height:2px;overflow:hidden;">
-        <div style="width:{pct}%;height:100%;background:var(--gold);border-radius:50px;"></div>
-      </div>
-      <div style="font-size:0.7rem;font-weight:700;color:var(--gold);">{pct}%</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    for i, q in enumerate(qs):
-        correct_q = done and ans.get(str(i)) == q.get("correct")
-        bc = ("var(--lime)" if correct_q else "var(--rose)") if done else "var(--rule)"
-        st.markdown(
-            f'<div style="background:var(--ink2);border-radius:9px;padding:0.85rem 1rem;'
-            f'border:1px solid {bc};margin-bottom:5px;">'
-            f'<div style="font-size:0.84rem;font-weight:600;color:var(--cream);">'
-            f'Q{i+1}. {q["question"]}</div></div>', unsafe_allow_html=True)
-
-        if not done:
-            opts = q.get("options", {})
-            chosen = st.radio(
-                f"Answer {i+1}", list(opts.items()),
-                format_func=lambda x: f"{x[0]}.  {x[1]}",
-                key=f"mcq_{i}", label_visibility="collapsed")
-            if chosen:
-                ans[str(i)] = chosen[0]
-                st.session_state.mcq_answers = ans
-        else:
-            opts = q.get("options", {})
-            for ok2, ov in opts.items():
-                right   = ok2 == q.get("correct")
-                chosen2 = ans.get(str(i)) == ok2
-                if right:     bg2, bc2, tc = "rgba(142,206,106,0.07)","var(--lime)","var(--lime)"
-                elif chosen2: bg2, bc2, tc = "rgba(232,115,106,0.07)","var(--rose)","var(--rose)"
-                else:         bg2, bc2, tc = "var(--ink3)","var(--rule)","var(--cream3)"
-                st.markdown(
-                    f'<div style="background:{bg2};border:1px solid {bc2};border-radius:6px;'
-                    f'padding:6px 11px;margin-bottom:3px;font-size:0.81rem;color:{tc};">'
-                    f'{ok2}.  {ov}</div>', unsafe_allow_html=True)
-            st.markdown(
-                f'<div style="background:rgba(200,169,110,0.05);border-radius:6px;'
-                f'padding:6px 11px;border-left:2px solid var(--gold);font-size:0.75rem;'
-                f'color:var(--cream3);margin-top:3px;margin-bottom:10px;">'
-                f'💡  {q.get("explanation","")}</div>', unsafe_allow_html=True)
-
-    if not done:
-        if st.button("Submit →", type="primary", use_container_width=True,
-                     disabled=len(ans) < len(qs)):
-
-            # ── FIX 1: Compute real score ───────────────────────────
-            total_questions = len(qs)
-            correct_count   = sum(
-                1 for i, q in enumerate(qs)
-                if ans.get(str(i)) == q.get("correct")
-            )
-            score  = _compute_mcq_score(correct_count, total_questions)
-            status = _score_to_status(score)
-
-            # ── FIX 2: Save each MCQ attempt to mcq_attempts table ──
-            # Use consistent topic name from course structure
-            module_title, subtopic_title = get_topic_subtopic_names(cid, m_i, t_i)
-            topic_label = module_title or module["title"]   # fallback to direct name
-
-            if not uid:
-                st.warning("⚠️ Cannot save MCQ attempts: user not authenticated")
-            else:
-                save_errors = []
-                for i, q in enumerate(qs):
-                    selected_answer = ans.get(str(i), "")
-                    correct_answer  = q.get("correct", "")
-                    result = db_save_mcq(
-                        uid=uid,
-                        topic=topic_label,
-                        question=q.get("question", f"Question {i+1}"),
-                        selected=selected_answer,
-                        correct=correct_answer,
-                    )
-                    if not result:
-                        save_errors.append(i + 1)
-
-                if save_errors:
-                    st.warning(f"⚠️ Could not save MCQ attempts for questions: {save_errors}")
-                else:
-                    print(f"✓ All {total_questions} MCQ attempts saved for topic: {topic_label}")
-
-            # ── FIX 3: Save progress with real score ────────────────
-            st.session_state.update(
-                mcq_submitted=True,
-                mcq_results={"correct": correct_count, "total": total_questions, "score": score}
-            )
-            progress_saved = _save_and_sync_progress(uid, cid, m_i, t_i, status, score)
-            if progress_saved:
-                print(f"✓ Quiz progress saved: {status} (score={score}%, correct={correct_count}/{total_questions})")
-            else:
-                st.warning("⚠️ Progress may not have saved. Check your connection.")
-
-            st.rerun()
-    else:
-        res = st.session_state.mcq_results
-        sc  = "var(--lime)" if res["score"] >= 70 else ("var(--gold)" if res["score"] >= 50 else "var(--rose)")
-        em  = "🎉" if res["score"] >= 70 else "📚" if res["score"] >= 50 else "💪"
-        st.markdown(f"""
-        <div style="text-align:center;padding:1.8rem;background:var(--ink2);border-radius:12px;
-                    border:1px solid {sc}44;margin:0.8rem 0;">
-          <div style="font-size:2rem;margin-bottom:6px;">{em}</div>
-          <div style="font-family:'Cormorant Garamond',serif;font-size:3rem;color:{sc};line-height:1;">{res['score']}%</div>
-          <div style="color:var(--cream3);font-size:0.8rem;margin-top:4px;">{res['correct']} / {res['total']} correct</div>
-        </div>
-        """, unsafe_allow_html=True)
-        c1, c2 = st.columns(2)
-        with c1:
-            if st.button("↺ Retake", use_container_width=True, type="primary"):
-                st.session_state.update(mcq_questions=[], mcq_answers={},
-                                         mcq_submitted=False, mcq_results=None)
+            if st.button("← All Courses", use_container_width=True, key="sb_all"):
+                st.session_state.update(active_course=None, page="catalog")
                 st.rerun()
-        with c2:
-            if st.button("Next Topic →", use_container_width=True):
-                _advance_topic(cid)
-
-# ══════════════════════════════════════════════════════════════════════
-# MODE: CODE PRACTICE — FIX: real scoring + save code_attempts
-# ══════════════════════════════════════════════════════════════════════
-def render_code_ide():
-    cid    = st.session_state.active_course
-    m_i    = st.session_state.active_module_idx
-    t_i    = st.session_state.active_topic_idx
-    course = COURSES[cid]
-    module = course["modules"][m_i]
-    topic  = module["topics"][t_i]
-    uid    = st.session_state.user_id
-
-    # Resolve canonical topic label for DB writes (consistent naming)
-    module_title, subtopic_title = get_topic_subtopic_names(cid, m_i, t_i)
-    db_topic_label = module_title or module["title"]  # safe fallback
-
-    # ── Task selection screen ────────────────────────────────────────
-    if not st.session_state.selected_task:
-        st.markdown(f"""
-        <div style="background:var(--ink2);border-radius:12px;padding:2rem 1.8rem;
-                    border:1px solid var(--rule);max-width:480px;margin:1.5rem auto 0;">
-          <div style="font-family:'Cormorant Garamond',serif;font-size:1.3rem;
-                      color:var(--cream);margin-bottom:4px;">Code Practice</div>
-          <div style="font-size:0.75rem;color:var(--cream3);margin-bottom:1.4rem;line-height:1.6;">
-            Topic: <span style="color:var(--cream2);">{topic['title']}</span>
-          </div>
-        """, unsafe_allow_html=True)
-        diff = st.select_slider(
-            "Difficulty",
-            options=["Beginner", "Intermediate", "Advanced"],
-            value=st.session_state.code_difficulty,
-        )
-        st.session_state.code_difficulty = diff
-        if st.button("Get Task →", type="primary", use_container_width=True):
-            with st.spinner("Loading task…"):
-                task = get_random_task(diff.lower())
-                st.session_state.update(
-                    selected_task=task, code_eval=None,
-                    code_submitted=False,
-                    user_code="",
-                )
-            st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
-        return
-
-    task = st.session_state.selected_task
-    dc   = _diff_color(st.session_state.code_difficulty)
-
-    # ── Task header ────────────────────────────────────────────────────
-    st.markdown(f"""
-    <div style="background:var(--ink2);border-radius:10px;padding:1rem 1.1rem;
-                border:1px solid var(--rule);border-left:3px solid var(--azure);
-                margin-bottom:0.8rem;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
-        <span style="font-size:0.85rem;font-weight:700;color:var(--cream);">{task['title']}</span>
-        {_tag(st.session_state.code_difficulty, dc)}
-      </div>
-      <div style="font-size:0.8rem;color:var(--cream2);line-height:1.6;margin-bottom:6px;">
-        {task['question']}
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # ── Two-panel layout ───────────────────────────────────────────────
-    left, right = st.columns([11, 9], gap="large")
-
-    # ── LEFT: Editor ───────────────────────────────────────────────────
-    with left:
-        st.markdown(
-            '<div style="font-size:0.58rem;font-weight:700;color:var(--cream3);'
-            'text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px;">'
-            '⌥ Editor</div>',
-            unsafe_allow_html=True,
-        )
-        editor_key = "code_editor_new" if st.session_state.get("new_task_selected", False) else "code_editor_area"
-
-        code = st.text_area(
-            "editor",
-            value=st.session_state.user_code,
-            height=360,
-            label_visibility="collapsed",
-            key=editor_key,
-        )
-
-        if st.session_state.get("new_task_selected", False):
-            st.session_state.new_task_selected = False
-
-        st.session_state.user_code = code
-
-        b1, b2, b3 = st.columns([2, 2, 2])
-        with b1:
-            run_click = st.button("▶ Run Code", use_container_width=True, type="primary",
-                                   help="Execute your code and see the output")
-        with b2:
-            submit_click = st.button("↑ Submit", use_container_width=True,
-                                      help="Mark this task complete")
-        with b3:
-            new_task_click = st.button("↺ New Task", use_container_width=True,
-                                        help="Get a different task")
-
-        if new_task_click:
-            diff = st.session_state.code_difficulty
-            with st.spinner("Loading new task…"):
-                nt = get_random_task(diff.lower())
-            st.session_state.update(
-                selected_task=nt, code_eval=None, code_submitted=False,
-                user_code="", new_task_selected=True,
-            )
-            st.rerun()
-
-        if run_click or submit_click:
-            if not code.strip():
-                st.warning("Write some code first.")
-            else:
-                with st.spinner("Running code…"):
-                    ev = eval_code(task, code)
-                    st.session_state.code_eval = ev
-
-                    # ── FIX: Compute real score (1 test: output match) ──
-                    passed_tests = 1 if ev.get("correct", False) else 0
-                    total_tests  = 1
-                    score  = _compute_code_score(passed_tests, total_tests)
-                    status = _score_to_status(score)
-
-                    # ── FIX: Always save code attempt to code_attempts ──
-                    # On both Run and Submit — every attempt is recorded
-                    if uid:
-                        feedback_text = ev.get("interpretation", "")
-                        if ev.get("fix"):
-                            feedback_text += f" | Fix: {ev.get('fix')}"
-                        db_save_code(
-                            uid=uid,
-                            topic=db_topic_label,
-                            code=code,
-                            passed=ev.get("correct", False),
-                            feedback=feedback_text,
-                            score=score,
-                        )
-                    else:
-                        st.warning("⚠️ Cannot save code attempt: user not authenticated")
-
-                    if submit_click:
-                        # Save progress only on explicit Submit
-                        progress_saved = _save_and_sync_progress(uid, cid, m_i, t_i, status, score)
-                        if progress_saved:
-                            print(f"✓ Code task submitted: {status} (score={score}%, passed={ev.get('correct')})")
-                        else:
-                            st.warning("⚠️ Progress may not have saved.")
-                        st.session_state.code_submitted = True
-
+            if st.button("◈ Dashboard", use_container_width=True, key="sb_dash"):
+                st.session_state.page = "dashboard"
                 st.rerun()
 
-        # Help section
-        with st.expander("💡 Hint"):
-            st.markdown(
-                f'<div style="font-size:0.81rem;color:var(--cream3);line-height:1.6;">'
-                f'{task["hints"]}</div>',
-                unsafe_allow_html=True,
-            )
-
-        with st.expander("👀 See Answer"):
-            st.code(task["solution"], language="python")
-
-    # ── RIGHT: Results panel ──────────────────────────────────────────
-    with right:
-        ev = st.session_state.code_eval
-
-        if not ev:
-            # Idle state
-            st.markdown("""<div style="background:#080710;border-radius:10px;padding:1.6rem 1.4rem;
-                        border:1px solid var(--rule);font-family:'DM Mono',monospace;
-                        min-height:200px;">
-              <div style="font-size:0.65rem;color:#3c3a52;user-select:none;">
-                $ python &lt;student&gt;<br><br>
-                <span style="color:#2a2840;">── awaiting execution ──</span>
-              </div>
-            </div>
-            <div style="font-size:0.65rem;color:var(--cream3);margin-top:8px;text-align:center;">
-              Click <strong>▶ Run Code</strong> to execute your code
-            </div>""", unsafe_allow_html=True)
-
-            # ── LUMINARY COPILOT ───────────────────────────────────────
-            st.markdown("""
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                        border-radius: 16px; margin-top: 1rem; padding: 2rem;
-                        box-shadow: 0 10px 40px rgba(0,0,0,0.1);">
-              <div style="text-align: center; margin-bottom: 2rem;">
-                <h2 style="color: white; font-size: 2.5rem; font-weight: 600; margin: 0;
-                           font-family: 'Inter', system-ui, sans-serif;">
-                  Luminary Copilot
-                </h2>
-                <p style="color: rgba(255,255,255,0.8); font-size: 1.1rem; margin: 0.5rem 0 0 0;
-                          font-family: 'Inter', system-ui, sans-serif;">
-                  Your AI coding assistant
-                </p>
-              </div>
+            st.divider()
+            pct = course_progress_pct(uid, cid)
+            st.markdown(f"""
+            <div style="margin-bottom:10px;">
+                <div style="display:flex; justify-content:space-between;
+                            font-size:0.65rem; color:var(--text-muted);">
+                    <span>Course progress</span>
+                    <span style="color:var(--primary); font-weight:600;">{pct}%</span>
+                </div>
+                {_progress_bar_html(pct, "3px")}
             </div>
             """, unsafe_allow_html=True)
 
-            chat_container = st.container()
-            task_name = f"copilot_task_{task.get('title', 'unknown').replace(' ', '_')}"
-            db_messages = db_load_chat(uid, task_name)
+            prog  = db_get_progress_dict(uid)
+            cur_m = st.session_state.active_module_idx
+            cur_t = st.session_state.active_topic_idx
 
-            with chat_container:
-                for msg in db_messages[-10:]:
-                    with st.chat_message(msg["role"]):
-                        st.markdown(msg["content"])
-
-                if prompt := st.chat_input("Ask about this coding task, Python concepts, or get help...", key="luminary_chat_input"):
-                    db_save_chat(uid, task_name, "user", prompt)
-
-                    context_prompt = f"""
-You are Luminary Copilot, an expert AI coding assistant. Help the user with this Python coding task:
-
-**Task:** {task.get('question', 'N/A')}
-**Expected Output:** {task.get('expected_output', 'N/A')}
-**Difficulty:** {st.session_state.code_difficulty}
-
-Be helpful, precise, and encouraging. Explain concepts clearly. If they ask about the solution, guide them rather than giving it directly unless they specifically request it.
-
-Current user code:
-{st.session_state.user_code or 'No code written yet'}
-"""
-
-                    with st.chat_message("assistant"):
-                        response = st.write_stream(_stream_llm(
-                            [{"role": "user", "content": prompt}],
-                            context_prompt,
-                            max_tokens=1500
-                        ))
-                        db_save_chat(uid, task_name, "assistant", response)
-
-                    st.rerun()
-
-            prompt_suggestions = [
-                f"Explain the best approach for: {task.get('title', 'this task')}",
-                f"What is wrong with my output for this task?",
-                f"Give me hints to get the expected output: {task.get('expected_output', '')}",
-            ]
-
-            if prompt_suggestions and db_messages:
-                st.markdown("""
-                <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(255,255,255,0.05);
-                            border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
-                  <div style="font-size: 0.9rem; color: rgba(255,255,255,0.7); margin-bottom: 0.5rem;
-                              font-family: 'Inter', system-ui, sans-serif;">
-                    💡 Quick prompts:
-                  </div>
+            for m_i, module in enumerate(course["modules"]):
+                done_m  = sum(1 for t in module["topics"]
+                              if prog.get(f"{module['title']}:{t['title']}", {}).get("status") == "completed")
+                total_m = len(module["topics"])
+                active_m = (m_i == cur_m)
+                st.markdown(f"""
+                <div style="background:{'rgba(220,38,38,0.04)' if active_m else 'transparent'};
+                            border-radius:8px; padding:5px 7px; margin-bottom:2px;
+                            border:1px solid {'var(--primary)44' if active_m else 'transparent'};">
+                    <div style="font-size:0.67rem; font-weight:600;
+                                color:{'var(--primary)' if active_m else 'var(--text-light)'};
+                                margin-bottom:2px;">{module['title'][:38]}</div>
+                    <div style="font-size:0.6rem; color:var(--text-muted);">{done_m}/{total_m} done</div>
                 </div>
                 """, unsafe_allow_html=True)
-
-                cols = st.columns(len(prompt_suggestions))
-                for i, (col, suggestion) in enumerate(zip(cols, prompt_suggestions)):
-                    with col:
-                        if st.button(suggestion, key=f"luminary_sugg_{i}", use_container_width=True):
-                            db_save_chat(uid, task_name, "user", suggestion)
+                if active_m:
+                    for t_i, topic in enumerate(module["topics"]):
+                        key    = f"{module['title']}:{topic['title']}"
+                        done   = prog.get(key, {}).get("status") == "completed"
+                        active_t = (t_i == cur_t)
+                        icon_c = "✓" if done else ("▶" if active_t else "·")
+                        col    = "var(--primary)" if done or active_t else "var(--text-muted)"
+                        st.markdown(f"""
+                        <div style="padding:3px 6px 3px 12px;">
+                            <div style="display:flex; gap:6px; align-items:flex-start;">
+                                <span style="color:{col}; font-size:0.62rem;">{icon_c}</span>
+                                <div style="font-size:0.71rem; color:{col};
+                                            line-height:1.35;">{topic['title'][:50]}</div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        if st.button("Go", key=f"nav_{cid}_{m_i}_{t_i}", use_container_width=True):
+                            st.session_state.update(
+                                active_module_idx=m_i, active_topic_idx=t_i,
+                                active_mode="lesson",
+                                mcq_questions=[], mcq_answers={},
+                                mcq_submitted=False, mcq_results=None,
+                                selected_task=None, code_eval=None,
+                                code_submitted=False, user_code=""
+                            )
                             st.rerun()
 
-        else:
-            ok          = ev.get("ok", False)
-            correct     = ev.get("correct", False)
-            stdout_text = (ev.get("stdout") or "").strip()
-            tb_text     = (ev.get("traceback") or "").strip()
-            interp      = (ev.get("interpretation") or "").strip()
-            fix_text    = (ev.get("fix") or "").strip()
+        # ── Sign‑out at the very bottom of the sidebar ──
+        st.sidebar.markdown("<div style='height:1.5rem;'></div>", unsafe_allow_html=True)
+        if st.sidebar.button("⊗ Sign Out", use_container_width=True, key="sidebar_signout"):
+            for k in list(st.session_state.keys()):
+                del st.session_state[k]
+            for k2, v2 in _DEFAULTS.items():
+                st.session_state[k2] = v2
+            st.rerun()
 
-            # ── Status header ────────────────────────────────────────
-            if correct:
-                status_dot  = '<span style="color:#8ece6a;">●</span>'
-                status_label = "✓ Correct Output"
-                border_color = "#8ece6a33"
-            elif ok:
-                status_dot  = '<span style="color:#e8c987;">●</span>'
-                status_label = "△ Incorrect Output"
-                border_color = "#e8c98733"
-            else:
-                status_dot  = '<span style="color:#e8736a;">●</span>'
-                status_label = "✗ Runtime Error"
-                border_color = "#e8736a33"
+# ─── COURSE: LESSON / QUIZ (CODE TAB REMOVED) ───────────────────────
+def _advance_topic():
+    cid = st.session_state.active_course
+    if not cid: return
+    course = COURSES.get(cid)
+    if not course: return
+    cur_m = st.session_state.active_module_idx
+    cur_t = st.session_state.active_topic_idx
+    if cur_t + 1 < len(course["modules"][cur_m]["topics"]):
+        st.session_state.active_topic_idx += 1
+    elif cur_m + 1 < len(course["modules"]):
+        st.session_state.active_module_idx += 1
+        st.session_state.active_topic_idx  = 0
+    st.session_state.update(
+        active_mode="lesson",
+        mcq_questions=[], mcq_answers={}, mcq_submitted=False, mcq_results=None,
+        selected_task=None, user_code="", code_eval=None, code_submitted=False
+    )
 
-            output_html = ""
-            if stdout_text:
-                lines_html = "<br>".join(
-                    l.replace(" ", "&nbsp;").replace("<", "&lt;").replace(">", "&gt;")
-                    for l in stdout_text.splitlines()
-                )
-                output_html += f'<div style="color:#8ece6a;">{lines_html}</div>'
-            elif ok:
-                output_html += '<div style="color:#3c3a52;font-style:italic;">(no output)</div>'
+def render_lesson(course, module, topic):
+    content = get_topic_content(
+        st.session_state.active_course,
+        st.session_state.active_module_idx,
+        st.session_state.active_topic_idx
+    )
+    st.markdown(content or "*Loading lesson...*")
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("✅ Mark as Completed", use_container_width=True, type="primary"):
+            _save_and_sync_progress(
+                st.session_state.user_id, st.session_state.active_course,
+                st.session_state.active_module_idx, st.session_state.active_topic_idx,
+                "completed", score=100
+            )
+            st.success("Great job! Moving to next topic.")
+            _advance_topic()
+            st.rerun()
+    with c2:
+        if st.button("⏭ Skip for now", use_container_width=True):
+            _advance_topic()
+            st.rerun()
 
-            if tb_text:
-                output_html += '<div style="color:#e8736a;margin-top:8px;font-weight:500;">⚠️ Code execution failed. Please check your syntax and try again.</div>'
+def render_quiz(course, module, topic):
+    if not st.session_state.mcq_questions:
+        with st.spinner("Generating questions..."):
+            st.session_state.mcq_questions = gen_mcq(
+                st.session_state.active_course,
+                st.session_state.active_module_idx,
+                st.session_state.active_topic_idx,
+                n=5
+            )
+    questions = st.session_state.mcq_questions
+    if not questions:
+        st.warning("Could not generate questions.")
+        if st.button("Retry"):
+            st.session_state.mcq_questions = []
+            st.rerun()
+        return
 
-            st.markdown(f"""
-            <div style="background:#080710;border-radius:10px;border:1px solid {border_color};
-                        overflow:hidden;margin-bottom:0.6rem;">
-              <div style="background:#0e0c1a;padding:7px 12px;border-bottom:1px solid #1a1828;
-                          display:flex;align-items:center;gap:8px;">
-                {status_dot}
-                <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:#3c3a52;">{status_label}</span>
-              </div>
-              <div style="padding:0.9rem 1rem;font-family:'DM Mono',monospace;font-size:0.79rem;
-                          line-height:1.75;min-height:80px;">
-                {output_html}
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
+    st.subheader("📝 Knowledge Check")
+    user_answers = {}
+    for i, q in enumerate(questions):
+        opts = q.get("options", {})
+        if not opts: continue
+        user_choice = st.radio(
+            f"**{i+1}. {q.get('question', '')}**",
+            list(opts.keys()),
+            format_func=lambda x, o=opts: f"{x}: {o[x]}",
+            key=f"mcq_{i}", index=None
+        )
+        user_answers[i] = user_choice
 
-            if fix_text:
-                st.markdown(f"""
-                <div style="background:rgba(106,180,232,0.05);border-radius:9px;
-                            padding:0.75rem 1rem;border:1px solid rgba(106,180,232,0.2);
-                            border-left:3px solid var(--azure);">
-                  <div style="font-size:0.58rem;font-weight:700;color:var(--azure);
-                              text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px;">
-                    Fix Suggestion
-                  </div>
-                  <div style="font-size:0.79rem;color:var(--cream2);line-height:1.6;">
-                    {fix_text}
-                  </div>
-                </div>
-                """, unsafe_allow_html=True)
+    if st.button("Submit Answers", type="primary", use_container_width=True):
+        correct_count = 0
+        results = []
+        for i, q in enumerate(questions):
+            correct  = q.get("correct", "")
+            selected = user_answers.get(i)
+            is_ok    = (selected == correct)
+            if is_ok: correct_count += 1
+            results.append({"question": q.get("question", ""), "selected": selected,
+                             "correct": correct, "is_correct": is_ok,
+                             "explanation": q.get("explanation", "")})
+            db_save_mcq(st.session_state.user_id, topic["title"],
+                        q.get("question", ""), selected or "", correct)
+        score = _compute_mcq_score(correct_count, len(questions))
+        st.session_state.mcq_results  = {"results": results, "score": score}
+        st.session_state.mcq_submitted = True
+        _save_and_sync_progress(
+            st.session_state.user_id, st.session_state.active_course,
+            st.session_state.active_module_idx, st.session_state.active_topic_idx,
+            _score_to_status(score), score
+        )
+        st.rerun()
 
-            st.markdown(f"""
-            <div style="background:var(--ink2);border-radius:9px;padding:0.75rem 1rem;
-                        border:1px solid var(--rule);">
-              <div style="font-size:0.58rem;font-weight:700;color:var(--cream3);
-                          text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px;">
-                Expected Output
-              </div>
-              <div style="font-family:'DM Mono',monospace;font-size:0.79rem;color:var(--lime);
-                          background:#080710;padding:8px;border-radius:4px;">
-                {task['expected_output']}
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
+    if st.session_state.mcq_submitted and st.session_state.mcq_results:
+        r = st.session_state.mcq_results
+        st.success(f"Your score: {r['score']}%")
+        for res in r["results"]:
+            icon = "✅" if res["is_correct"] else "❌"
+            st.markdown(f"{icon} **{res['question']}**")
+            st.caption(f"Your: {res['selected']} | Correct: {res['correct']}")
+            if res["explanation"]:
+                st.caption(f"💡 {res['explanation']}")
+        if st.button("Next Topic →", use_container_width=True):
+            _advance_topic()
+            st.rerun()
 
-            # ── Luminary Copilot chat (post-execution) ────────────────
-            chat_container = st.container()
-            task_name = f"copilot_task_{task.get('title', 'unknown').replace(' ', '_')}"
-            db_messages = db_load_chat(uid, task_name)
-
-            with chat_container:
-                for msg in db_messages[-10:]:
-                    if msg["role"] == "user":
-                        st.markdown(f"""
-                        <div style="display:flex;justify-content:flex-end;margin:8px 0;">
-                          <div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                                      color:#ffffff;padding:12px 16px;border-radius:18px 18px 4px 18px;
-                                      max-width:70%;font-size:0.9rem;line-height:1.4;
-                                      box-shadow:0 2px 8px rgba(102,126,234,0.3);">
-                            {msg['content']}
-                          </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    else:
-                        st.markdown(f"""
-                        <div style="display:flex;justify-content:flex-start;margin:8px 0;">
-                          <div style="background:#1e293b;color:#e2e8f0;padding:12px 16px;
-                                      border-radius:18px 18px 18px 4px;max-width:80%;
-                                      font-size:0.9rem;line-height:1.5;border-left:3px solid #00ff88;
-                                      box-shadow:0 2px 8px rgba(0,0,0,0.2);">
-                            {msg['content']}
-                          </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-            col1, col2 = st.columns([6, 1])
-            with col1:
-                user_input = st.text_input(
-                    "Ask Luminary Copilot...",
-                    value="",
-                    key="luminary_input_field",
-                    placeholder="Type your question about this task...",
-                    label_visibility="collapsed"
-                )
-            with col2:
-                send_button = st.button("🚀 Send", use_container_width=True, type="primary")
-
-            if send_button and user_input.strip():
-                db_save_chat(uid, task_name, "user", user_input.strip())
-
-                context_prompt = f"""
-You are Luminary Copilot, an expert AI coding assistant. Help the user with this Python coding task:
-
-**Task:** {task.get('question', 'N/A')}
-**Expected Output:** {task.get('expected_output', 'N/A')}
-**Difficulty:** {st.session_state.code_difficulty}
-
-Be helpful, precise, and encouraging. Explain concepts clearly. If they ask about the solution, guide them rather than giving it directly unless they specifically request it.
-
-Current user code:
-{st.session_state.user_code or 'No code written yet'}
-"""
-
-                try:
-                    with st.spinner("Luminary is thinking..."):
-                        response_stream = _stream_llm(
-                            [{"role": "user", "content": user_input.strip()}],
-                            context_prompt,
-                            max_tokens=1500
-                        )
-
-                    assistant_message = ""
-                    message_placeholder = st.empty()
-
-                    for chunk in response_stream:
-                        assistant_message += chunk
-                        message_placeholder.markdown(f"""
-                        <div style="display:flex;justify-content:flex-start;margin:8px 0;">
-                          <div style="background:#1e293b;color:#e2e8f0;padding:12px 16px;
-                                      border-radius:18px 18px 18px 4px;max-width:80%;
-                                      font-size:0.9rem;line-height:1.5;border-left:3px solid #00ff88;
-                                      box-shadow:0 2px 8px rgba(0,0,0,0.2);">
-                            {assistant_message}▊</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                    db_save_chat(uid, task_name, "assistant", assistant_message)
-                    st.rerun()
-
-                except Exception as e:
-                    st.error(f"Luminary Copilot error: {str(e)}")
-
-            st.markdown("</div>", unsafe_allow_html=True)
-
-            # ── Submission status ───────────────────────────────────────
-            if st.session_state.code_submitted:
-                if correct:
-                    st.success("✓ Task completed successfully!")
-                else:
-                    st.warning("Task submitted but needs correction. Try again!")
-
-# ══════════════════════════════════════════════════════════════════════
-# NAV HELPERS
-# ══════════════════════════════════════════════════════════════════════
-def _advance_topic(cid):
-    course = COURSES[cid]
-    m_i = st.session_state.active_module_idx
-    t_i = st.session_state.active_topic_idx
-    module = course["modules"][m_i]
-    if t_i < len(module["topics"]) - 1:
-        st.session_state.update(active_topic_idx=t_i+1, active_mode=None,
-                                 mcq_questions=[], mcq_answers={}, mcq_submitted=False,
-                                 mcq_results=None, selected_task=None, code_eval=None,
-                                 code_submitted=False, user_code="")
-    elif m_i < len(course["modules"]) - 1:
-        st.session_state.update(active_module_idx=m_i+1, active_topic_idx=0,
-                                 active_mode=None, mcq_questions=[], mcq_answers={},
-                                 mcq_submitted=False, mcq_results=None, selected_task=None,
-                                 code_eval=None, code_submitted=False, user_code="")
-    else:
-        st.success("🎉 Course complete!")
-    st.rerun()
-
-# ══════════════════════════════════════════════════════════════════════
-# PAGE: COURSE
-# ══════════════════════════════════════════════════════════════════════
 def page_course():
     cid = st.session_state.active_course
-    if not cid:
-        st.session_state.page = "catalog"; st.rerun()
+    if not cid: return st.error("No course selected.")
+    course = COURSES.get(cid)
+    if not course: return st.error("Course not found.")
+    module = course["modules"][st.session_state.active_module_idx]
+    topic  = module["topics"][st.session_state.active_topic_idx]
 
-    render_sidebar()
-    course  = COURSES[cid]
-    m_i     = st.session_state.active_module_idx
-    t_i     = st.session_state.active_topic_idx
-    module  = course["modules"][m_i]
-    topic   = module["topics"][t_i]
-    uid     = st.session_state.user_id
-    mode    = st.session_state.active_mode
-    is_python_course = cid == "python"
-
-    if not is_python_course and mode == "code":
-        st.session_state.active_mode = None
-        mode = None
-
-    nav1, nav2, nav3, _ = st.columns([1.2, 1.2, 1.1, 3.5])
-    with nav1:
-        if st.button("← Back", key="course_back_step", use_container_width=True):
-            if st.session_state.active_mode:
-                st.session_state.active_mode = None
-            else:
-                st.session_state.active_course = None
-                st.session_state.page = "catalog"
-            st.rerun()
-    with nav2:
-        if st.button("⌂ Home", key="course_home", use_container_width=True):
-            st.session_state.active_course = None
-            st.session_state.page = "catalog"
-            st.rerun()
-    with nav3:
-        if st.button("◈ Dashboard", key="course_dash_top", use_container_width=True):
-            st.session_state.page = "dashboard"
-            st.rerun()
-
-    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
-
-    mode_columns = st.columns(3 if is_python_course else 2)
-    modes_def = [
-        (mode_columns[0], "lesson", course["color"], "▶", "Lesson",   "Read + AI follow-up"),
-        (mode_columns[1], "quiz",   "var(--gold)",   "◎", "Quiz",     "MCQ knowledge check"),
-    ]
-    if is_python_course:
-        modes_def.append(
-            (mode_columns[2], "code", "var(--lime)", "⌥", "Practice", "Code task + interpreter")
-        )
-    for col, m, color, ico, ttl, dsc in modes_def:
-        with col:
-            active = mode == m
-            bd = f"1px solid {color}" if active else "1px solid var(--rule)"
-            st.markdown(f"""
-            <div style="background:var(--ink2);border-radius:9px;padding:0.65rem 0.8rem;
-                        border:{bd};margin-bottom:4px;">
-              <div style="display:flex;align-items:center;gap:7px;">
-                <span style="font-size:0.95rem;color:{color};">{ico}</span>
-                <div>
-                  <div style="font-size:0.8rem;font-weight:600;color:var(--cream);">{ttl}</div>
-                  <div style="font-size:0.66rem;color:var(--cream3);">{dsc}</div>
-                </div>
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
-            lbl = "◀ Close" if active else "Open →"
-            if st.button(lbl, key=f"mode_{m}", use_container_width=True,
-                         type="primary" if active else "secondary"):
-                if active:
-                    st.session_state.active_mode = None
-                else:
-                    st.session_state.update(
-                        active_mode=m, mcq_questions=[], mcq_answers={},
-                        mcq_submitted=False, mcq_results=None,
-                        selected_task=None, code_eval=None, code_submitted=False, user_code=""
-                    )
-                st.rerun()
-
-    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-
-    if mode:
-        st.divider()
-        if   mode == "lesson": render_lesson()
-        elif mode == "quiz":   render_quiz()
-        elif mode == "code" and is_python_course:
-            render_code_ide()
-    else:
-        st.markdown(f"""
-        <div style="background:var(--ink2);border-radius:12px;padding:2rem;
-                    border:1px solid var(--rule);margin-top:0.4rem;text-align:center;">
-          <div style="font-family:'Cormorant Garamond',serif;font-size:1.4rem;
-                      color:var(--cream);margin-bottom:8px;">{topic['title']}</div>
-          <div style="font-size:0.78rem;color:var(--cream3);">
-            Estimated time: {topic['min']} min &nbsp;·&nbsp; Select a mode above to begin
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-    n1, _, n2, n3 = st.columns([1, 4, 1, 1])
-    with n1:
-        can_prev = t_i > 0 or m_i > 0
-        if can_prev and st.button("← Prev", use_container_width=True):
-            if t_i > 0:
-                st.session_state.active_topic_idx = t_i - 1
-            else:
-                prev_m = m_i - 1
-                st.session_state.active_module_idx = prev_m
-                st.session_state.active_topic_idx  = len(course["modules"][prev_m]["topics"]) - 1
-            st.session_state.active_mode = None
-            st.rerun()
-    with n2:
-        if st.button("✓ Mark Done", use_container_width=True):
-            # Manual mark done = full credit
-            _save_and_sync_progress(uid, cid, m_i, t_i, "completed", score=100)
-            st.rerun()
-    with n3:
-        last_m = len(course["modules"]) - 1
-        last_t = len(course["modules"][last_m]["topics"]) - 1
-        if not (m_i == last_m and t_i == last_t):
-            if st.button("Next →", use_container_width=True, type="primary"):
-                _save_and_sync_progress(uid, cid, m_i, t_i, "completed", score=100)
-                _advance_topic(cid)
-        else:
-            st.success("🎉 Complete!")
-
-# ══════════════════════════════════════════════════════════════════════
-# PAGE: DASHBOARD
-# ══════════════════════════════════════════════════════════════════════
-def page_dashboard():
-    uid  = st.session_state.user_id
-    name = st.session_state.user_name or ""
-
-    render_sidebar() if st.session_state.active_course else None
-
-    d1, d2, _ = st.columns([1.2, 1.2, 5.6])
-    with d1:
-        if st.button("← Back", key="dash_back_step", use_container_width=True):
-            st.session_state.page = "course" if st.session_state.active_course else "catalog"
-            st.rerun()
-    with d2:
-        if st.button("⌂ Home", key="dash_home_top", use_container_width=True):
-            st.session_state.active_course = None
-            st.session_state.page = "catalog"
-            st.rerun()
-
-    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
     st.markdown(f"""
-    <div style="margin-bottom:1.5rem;">
-      <div style="font-family:'Cormorant Garamond',serif;font-size:1.9rem;
-                  color:var(--cream);font-weight:300;">Learning Dashboard</div>
-      <div style="font-size:0.76rem;color:var(--cream3);margin-top:2px;">{name}'s progress overview</div>
+    <div style="margin-bottom:1rem;">
+        <div style="font-size:0.7rem; color:var(--primary);">
+            {course['title']} / {module['title']}</div>
+        <div style="font-size:1.4rem; font-weight:600;
+                    color:var(--text);">{topic['title']}</div>
     </div>
     """, unsafe_allow_html=True)
 
-    # CRITICAL: Reload fresh progress from DB for dashboard
-    prog      = _sync_progress_from_db(uid)
-    total_all = sum(sum(len(m["topics"]) for m in c["modules"]) for c in COURSES.values())
-    done_all  = sum(1 for v in prog.values() if v.get("status") == "completed")
-    pct_all   = round(done_all / total_all * 100) if total_all else 0
-    active_courses = sum(1 for cid in COURSES if course_progress_pct(uid, cid) > 0)
+    mode = st.session_state.active_mode or "lesson"
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("📖 Lesson", use_container_width=True,
+                     type="primary" if mode == "lesson" else "secondary"):
+            st.session_state.active_mode = "lesson"; st.rerun()
+    with col2:
+        if st.button("📝 Quiz", use_container_width=True,
+                     type="primary" if mode == "quiz" else "secondary"):
+            st.session_state.active_mode = "quiz"; st.rerun()
 
-    cols = st.columns(4)
-    stats = [
-        ("Overall Progress", f"{pct_all}%",           f"{done_all}/{total_all} topics",   "var(--gold)"),
-        ("Active Courses",   str(active_courses),      f"of {len(COURSES)} available",      "var(--azure)"),
-        ("Topics Completed", str(done_all),            "across all courses",                "var(--lime)"),
-        ("Study Hours",      f"~{round(done_all*0.5)}h","estimated from progress",          "var(--teal)"),
+    st.divider()
+
+    if mode == "lesson":
+        render_lesson(course, module, topic)
+    elif mode == "quiz":
+        render_quiz(course, module, topic)
+
+# ─── PAGE: DASHBOARD ─────────────────────────────────────────────────
+def page_dashboard():
+    uid  = st.session_state.user_id
+    name = st.session_state.user_name or "there"
+
+    prog = _sync_progress_from_db(uid)
+
+    all_topics = [
+        (course_id, m["title"], t["title"])
+        for course_id, course in COURSES.items()
+        for m in course["modules"]
+        for t in m["topics"]
     ]
-    for col, (lbl, val, sub, color) in zip(cols, stats):
-        with col:
+    total_topics  = len(all_topics)
+    completed_set = {
+        f"{cid}:{mt}:{tt}"
+        for cid, mt, tt in all_topics
+        if prog.get(f"{mt}:{tt}", {}).get("status") == "completed"
+    }
+    completed     = len(completed_set)
+    in_progress   = sum(
+        1 for v in prog.values() if v.get("status") == "in_progress"
+    )
+
+    overall_pct   = round(completed / total_topics * 100) if total_topics else 0
+    avg_score_vals = [v["score"] for v in prog.values()
+                      if v.get("score") is not None and isinstance(v["score"], (int, float))]
+    avg_score      = round(sum(avg_score_vals) / len(avg_score_vals)) if avg_score_vals else 0
+
+    st.markdown(f"""
+    <div style="padding:1.5rem 0 1rem; border-bottom:1px solid var(--border);
+                margin-bottom:1.5rem;">
+        <div style="font-size:0.7rem; color:var(--primary); text-transform:uppercase;
+                    letter-spacing:0.1em; margin-bottom:4px;">Learning Dashboard</div>
+        <div style="font-size:2rem; font-weight:600; color:var(--text);
+                    line-height:1.2;">{name}'s Progress</div>
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">
+            All your stats across the 2026 curriculum.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    m1, m2, m3, m4 = st.columns(4)
+    with m1:
+        st.metric("Topics Completed", completed,
+                  delta=f"{overall_pct}% of curriculum")
+    with m2:
+        st.metric("In Progress", in_progress)
+    with m3:
+        st.metric("Courses Enrolled", len(COURSES))
+    with m4:
+        st.metric("Avg Quiz Score", f"{avg_score}%" if avg_score_vals else "—")
+
+    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+
+    st.markdown(f"""
+    <div style="background:var(--card); border:1px solid var(--border);
+                border-radius:16px; padding:1.2rem 1.4rem; margin-bottom:1.2rem;
+                box-shadow:var(--shadow);">
+        <div style="display:flex; justify-content:space-between; align-items:center;
+                    margin-bottom:10px;">
+            <div style="font-size:0.85rem; font-weight:600;
+                        color:var(--text);">Overall curriculum progress</div>
+            <div style="font-size:1.2rem; font-weight:700;
+                        color:var(--primary);">{overall_pct}%</div>
+        </div>
+        {_progress_bar_html(overall_pct, "10px")}
+        <div style="font-size:0.72rem; color:var(--text-muted); margin-top:8px;">
+            {completed} of {total_topics} topics completed across {len(COURSES)} courses
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted);
+                text-transform:uppercase; letter-spacing:0.08em;
+                margin-bottom:0.8rem;">Course Breakdown</div>
+    """, unsafe_allow_html=True)
+
+    course_cols = st.columns(2)
+    for idx, (cid, course) in enumerate(COURSES.items()):
+        pct         = course_progress_pct(uid, cid)
+        total_c     = sum(len(m["topics"]) for m in course["modules"])
+        done_c      = round(pct / 100 * total_c)
+        status_html = ""
+        if pct == 100:
+            status_html = (
+                f'<span style="background:var(--success-bg);color:var(--success);'
+                f'border:1px solid #bbf7d0;border-radius:20px;padding:2px 10px;'
+                f'font-size:0.6rem;font-weight:600;">Completed</span>'
+            )
+        elif pct > 0:
+            status_html = (
+                f'<span style="background:var(--warning-bg);color:var(--warning);'
+                f'border:1px solid #fde68a;border-radius:20px;padding:2px 10px;'
+                f'font-size:0.6rem;font-weight:600;">In Progress</span>'
+            )
+        else:
+            status_html = (
+                f'<span style="background:var(--bg-offset);color:var(--text-muted);'
+                f'border:1px solid var(--border2);border-radius:20px;padding:2px 10px;'
+                f'font-size:0.6rem;font-weight:600;">Not Started</span>'
+            )
+
+        with course_cols[idx % 2]:
             st.markdown(f"""
-            <div style="background:var(--ink2);border-radius:10px;padding:0.95rem 1rem;
-                        border:1px solid var(--rule);">
-              <div style="font-size:0.58rem;color:var(--cream3);font-weight:600;
-                          text-transform:uppercase;letter-spacing:0.09em;">{lbl}</div>
-              <div style="font-family:'Cormorant Garamond',serif;font-size:2rem;
-                          color:{color};margin:3px 0;line-height:1.1;">{val}</div>
-              <div style="font-size:0.67rem;color:var(--cream3);">{sub}</div>
+            <div style="background:var(--card); border:1px solid var(--border);
+                        border-radius:16px; padding:1rem 1.2rem; margin-bottom:0.8rem;
+                        box-shadow:var(--shadow);">
+                <div style="display:flex; justify-content:space-between;
+                            align-items:flex-start; margin-bottom:8px;">
+                    <div>
+                        <div style="font-size:0.88rem; font-weight:600;
+                                    color:var(--text);">{course['title']}</div>
+                        <div style="font-size:0.65rem;
+                                    color:var(--text-muted);">{course['difficulty']} · {course['hours']}h</div>
+                    </div>
+                    {status_html}
+                </div>
+                <div style="display:flex; justify-content:space-between;
+                            font-size:0.65rem; color:var(--text-muted); margin-bottom:6px;">
+                    <span>{done_c} / {total_c} topics</span>
+                    <span style="color:var(--primary); font-weight:600;">{pct}%</span>
+                </div>
+                {_progress_bar_html(pct, "6px")}
             </div>
             """, unsafe_allow_html=True)
 
-    st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
-    st.markdown('<div style="font-size:0.6rem;font-weight:600;color:var(--cream3);'
-                'text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">'
-                'Course Breakdown</div>', unsafe_allow_html=True)
-
-    for cid, c in COURSES.items():
-        cpct   = course_progress_pct(uid, cid)
-        color  = c["color"]
-        done_c = sum(1 for mi, md in enumerate(c["modules"])
-                     for ti in range(len(md["topics"]))
-                     if prog.get(f"{md['title']}:{md['topics'][ti]['title']}", {}).get("status") == "completed")
-        total_c = sum(len(m["topics"]) for m in c["modules"])
-
-        col1, col2, col3 = st.columns([3, 6, 1])
-        with col1:
-            st.markdown(f"""
-            <div style="display:flex;align-items:center;gap:8px;padding:6px 0;">
-              <span style="font-size:1rem;color:{color};">{c['icon']}</span>
-              <div style="font-size:0.79rem;color:var(--cream);font-weight:500;">{c['title']}</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with col2:
-            st.markdown(f"""
-            <div style="padding:10px 0;">
-              <div style="display:flex;justify-content:space-between;font-size:0.62rem;
-                          color:var(--cream3);margin-bottom:3px;">
-                <span>{done_c}/{total_c} topics</span>
-                <span style="color:{color};font-weight:600;">{cpct}%</span>
-              </div>
-              <div style="background:var(--ink4);border-radius:50px;height:3px;overflow:hidden;">
-                <div style="width:{cpct}%;height:100%;background:{color};border-radius:50px;"></div>
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
-        with col3:
-            if st.button("Go →", key=f"dash_{cid}", use_container_width=True,
-                         type="primary" if cpct > 0 else "secondary"):
-                st.session_state.update(active_course=cid, page="course", active_mode=None)
+            btn_label = ("View Course →" if pct == 100
+                         else "Continue →" if pct > 0 else "Start →")
+            if st.button(btn_label, key=f"dash_go_{cid}", use_container_width=True,
+                         type="primary" if pct > 0 else "secondary"):
+                st.session_state.update(
+                    active_course=cid, page="course",
+                    active_module_idx=0, active_topic_idx=0,
+                    active_mode="lesson",
+                    mcq_questions=[], mcq_answers={},
+                    mcq_submitted=False, mcq_results=None,
+                    selected_task=None, code_eval=None,
+                    code_submitted=False, user_code=""
+                )
                 st.rerun()
 
-    st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
-    if st.button("← Back to Catalog", type="primary"):
-        st.session_state.page = "catalog"; st.rerun()
+    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
 
-# ══════════════════════════════════════════════════════════════════════
-# MAIN ROUTER
-# ══════════════════════════════════════════════════════════════════════
+    if prog:
+        st.markdown("""
+        <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted);
+                    text-transform:uppercase; letter-spacing:0.08em;
+                    margin-bottom:0.8rem;">Recent Activity</div>
+        """, unsafe_allow_html=True)
+
+        recent_items = []
+        for key, val in prog.items():
+            if ":" in key:
+                parts = key.split(":", 1)
+                recent_items.append({
+                    "module": parts[0], "topic": parts[1],
+                    "status": val.get("status", ""),
+                    "score": val.get("score")
+                })
+
+        recent_items = [r for r in recent_items if r["status"] in ("completed", "in_progress")]
+        recent_items = recent_items[-8:][::-1]
+
+        feed_rows = ""
+        for item in recent_items:
+            icon  = "✓" if item["status"] == "completed" else "◐"
+            color = "var(--success)" if item["status"] == "completed" else "var(--warning)"
+            score_html = (
+                f'<span style="font-size:0.65rem;color:var(--text-muted);">{item["score"]}%</span>'
+                if item["score"] is not None else ""
+            )
+            feed_rows += f"""
+            <div style="display:flex; align-items:center; gap:10px;
+                        padding:8px 0; border-bottom:1px solid var(--border);">
+                <span style="color:{color}; font-size:0.8rem; min-width:14px;">{icon}</span>
+                <div style="flex:1; min-width:0;">
+                    <div style="font-size:0.78rem; font-weight:500; color:var(--text);
+                                white-space:nowrap; overflow:hidden;
+                                text-overflow:ellipsis;">{item['topic']}</div>
+                    <div style="font-size:0.65rem; color:var(--text-muted);
+                                white-space:nowrap; overflow:hidden;
+                                text-overflow:ellipsis;">{item['module']}</div>
+                </div>
+                {score_html}
+            </div>
+            """
+
+        st.markdown(f"""
+        <div style="background:var(--card); border:1px solid var(--border);
+                    border-radius:16px; padding:0.8rem 1.2rem;
+                    margin-bottom:1rem; box-shadow:var(--shadow);">
+            {feed_rows}
+        </div>
+        """, unsafe_allow_html=True)
+
+    b1, b2, _ = st.columns([1, 1, 4])
+    with b1:
+        if st.button("← Catalog", use_container_width=True):
+            st.session_state.page = "catalog"; st.rerun()
+    # No sign‑out here anymore
+
+# ─── PERSONAL TEACHER BAR ────────────────────────────────────────────
+def render_personal_teacher_bar():
+    uid = st.session_state.user_id
+    if not uid: return
+
+    if not st.session_state.guide_messages_loaded:
+        st.session_state.guide_messages        = db_load_guide_messages(uid)
+        st.session_state.guide_messages_loaded = True
+
+    st.markdown("""
+    <div style="background:var(--bg-offset); border:1px solid var(--border);
+                border-radius:20px; padding:1rem 1.4rem 0.5rem;
+                margin-top:2rem; box-shadow:var(--shadow);">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+            <span style="font-size:1rem; color:var(--primary);">🧑‍🏫</span>
+            <span style="font-size:0.9rem; font-weight:600;
+                         color:var(--text);">Personal Teacher</span>
+            <span style="font-size:0.72rem; color:var(--text-muted);">
+                — ask me anything about your courses</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if st.session_state.guide_messages:
+        with st.expander("Conversation history", expanded=False):
+            for msg in st.session_state.guide_messages[-6:]:
+                with st.chat_message(msg["role"]):
+                    st.markdown(msg["content"])
+
+    query = st.chat_input("Ask your Personal Teacher…", key="personal_teacher_input")
+    if query:
+        st.session_state.guide_messages.append({"role": "user", "content": query})
+        db_save_guide_message(uid, "user", query)
+
+        with st.chat_message("user"):
+            st.markdown(query)
+
+        with st.chat_message("assistant"):
+            system_prompt = (
+                "You are TEACHER.AI's Personal Teacher, a warm, knowledgeable assistant "
+                "for career, learning, and productivity. Be concise and encouraging."
+            )
+            msgs = [
+                {"role": m["role"], "content": m["content"]}
+                for m in st.session_state.guide_messages[-8:]
+            ]
+            response = st.write_stream(_stream_llm(msgs, system_prompt, max_tokens=800))
+
+        st.session_state.guide_messages.append({"role": "assistant", "content": response})
+        db_save_guide_message(uid, "assistant", response)
+        st.rerun()
+
+    if st.button("🗑 Clear history", key="clear_teacher", use_container_width=False):
+        try:
+            db().table("personal_guide").delete().eq("user_id", uid).execute()
+        except Exception:
+            pass
+        st.session_state.guide_messages        = []
+        st.session_state.guide_messages_loaded = True
+        st.rerun()
+
+# ─── MAIN ROUTER ──────────────────────────────────────────────────────
 def main():
-    # Restore session if user_id exists in session state but not authenticated
     if st.session_state.user_id and not st.session_state.authenticated:
         restore_user_session(st.session_state.user_id)
-
     if not st.session_state.authenticated:
-        page_auth(); return
+        page_auth()
+        return
 
-    # Auto-sync progress on every page load (ensures no stale state)
     uid = st.session_state.user_id
-    if uid and not st.session_state.progress:
+    if uid and st.session_state.progress is None:
         _sync_progress_from_db(uid)
 
+    # Sidebar always visible, with sign‑out at bottom
+    render_course_sidebar()
+
     p = st.session_state.page
-    if   p == "catalog":   page_catalog()
-    elif p == "course":    page_course()
-    elif p == "dashboard": page_dashboard()
+    if p == "catalog":
+        page_catalog()
+    elif p == "course":
+        page_course()
+    elif p == "dashboard":
+        page_dashboard()
     else:
-        st.session_state.page = "catalog"; st.rerun()
+        st.session_state.page = "catalog"
+        st.rerun()
+
+    render_personal_teacher_bar()
 
 if __name__ == "__main__":
     main()
