@@ -509,7 +509,7 @@ COURSES = {
     },
 }
 
-# ─── STATIC CODING TASKS (unused now but kept for compatibility) ──────
+# ─── STATIC CODING TASKS (kept for compatibility) ────────────────────
 BEGINNER_TASKS = [
     {"title": "Hello, World!", "description": "Print 'Hello, World!' to the console.", "expected_output": "Hello, World!", "difficulty": "beginner"},
     {"title": "Sum of Two Numbers", "description": "Given a=5, b=7, print their sum.", "expected_output": "12", "difficulty": "beginner"},
@@ -1034,7 +1034,6 @@ def render_course_sidebar():
     cid = st.session_state.active_course
 
     with st.sidebar:
-        # User header
         st.markdown(f"""
         <div style="padding:0.8rem 0 0.6rem;">
             <div style="font-weight:600; font-size:0.85rem; color:var(--text);">
@@ -1044,7 +1043,6 @@ def render_course_sidebar():
         </div>
         """, unsafe_allow_html=True)
 
-        # Course navigation (if inside a course)
         if cid and cid in COURSES:
             course = COURSES[cid]
             st.markdown(f"""
@@ -1120,7 +1118,6 @@ def render_course_sidebar():
                             )
                             st.rerun()
 
-        # ── Sign‑out at the very bottom of the sidebar ──
         st.sidebar.markdown("<div style='height:1.5rem;'></div>", unsafe_allow_html=True)
         if st.sidebar.button("⊗ Sign Out", use_container_width=True, key="sidebar_signout"):
             for k in list(st.session_state.keys()):
@@ -1129,7 +1126,7 @@ def render_course_sidebar():
                 st.session_state[k2] = v2
             st.rerun()
 
-# ─── COURSE: LESSON / QUIZ (CODE TAB REMOVED) ───────────────────────
+# ─── COURSE: LESSON / QUIZ ──────────────────────────────────────────
 def _advance_topic():
     cid = st.session_state.active_course
     if not cid: return
@@ -1417,63 +1414,10 @@ def page_dashboard():
 
     st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
 
-    if prog:
-        st.markdown("""
-        <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted);
-                    text-transform:uppercase; letter-spacing:0.08em;
-                    margin-bottom:0.8rem;">Recent Activity</div>
-        """, unsafe_allow_html=True)
-
-        recent_items = []
-        for key, val in prog.items():
-            if ":" in key:
-                parts = key.split(":", 1)
-                recent_items.append({
-                    "module": parts[0], "topic": parts[1],
-                    "status": val.get("status", ""),
-                    "score": val.get("score")
-                })
-
-        recent_items = [r for r in recent_items if r["status"] in ("completed", "in_progress")]
-        recent_items = recent_items[-8:][::-1]
-
-        feed_rows = ""
-        for item in recent_items:
-            icon  = "✓" if item["status"] == "completed" else "◐"
-            color = "var(--success)" if item["status"] == "completed" else "var(--warning)"
-            score_html = (
-                f'<span style="font-size:0.65rem;color:var(--text-muted);">{item["score"]}%</span>'
-                if item["score"] is not None else ""
-            )
-            feed_rows += f"""
-            <div style="display:flex; align-items:center; gap:10px;
-                        padding:8px 0; border-bottom:1px solid var(--border);">
-                <span style="color:{color}; font-size:0.8rem; min-width:14px;">{icon}</span>
-                <div style="flex:1; min-width:0;">
-                    <div style="font-size:0.78rem; font-weight:500; color:var(--text);
-                                white-space:nowrap; overflow:hidden;
-                                text-overflow:ellipsis;">{item['topic']}</div>
-                    <div style="font-size:0.65rem; color:var(--text-muted);
-                                white-space:nowrap; overflow:hidden;
-                                text-overflow:ellipsis;">{item['module']}</div>
-                </div>
-                {score_html}
-            </div>
-            """
-
-        st.markdown(f"""
-        <div style="background:var(--card); border:1px solid var(--border);
-                    border-radius:16px; padding:0.8rem 1.2rem;
-                    margin-bottom:1rem; box-shadow:var(--shadow);">
-            {feed_rows}
-        </div>
-        """, unsafe_allow_html=True)
-
     b1, b2, _ = st.columns([1, 1, 4])
     with b1:
         if st.button("← Catalog", use_container_width=True):
             st.session_state.page = "catalog"; st.rerun()
-    # No sign‑out here anymore
 
 # ─── PERSONAL TEACHER BAR ────────────────────────────────────────────
 def render_personal_teacher_bar():
@@ -1548,7 +1492,6 @@ def main():
     if uid and st.session_state.progress is None:
         _sync_progress_from_db(uid)
 
-    # Sidebar always visible, with sign‑out at bottom
     render_course_sidebar()
 
     p = st.session_state.page
