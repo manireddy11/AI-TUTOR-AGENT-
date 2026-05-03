@@ -55,29 +55,6 @@ erDiagram
     users ||--o{ code_attempts : submits
     users ||--o{ personal_guide : uses
 
-    users {
-        uuid id PK
-        text username
-        text password_hash
-        text name
-        timestamptz created_at
-    }
-
-    topic_progress {
-        uuid user_id FK
-        text topic
-        text subtopic
-        text status
-        int score
-        timestamptz completed_at
-    }
-
-    personal_guide {
-        uuid user_id FK
-        text role
-        text content
-        timestamptz created_at
-    }
 
 
 ---
