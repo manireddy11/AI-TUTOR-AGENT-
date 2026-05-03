@@ -48,7 +48,7 @@
   </div>
 </div>
 
-
+![Catalog View](https://github.com/manireddy11/AI-TUTOR-AGENT-/raw/1d700479dba43e16d86b06b18aa69916574f79b0/assets/Screenshot%202026-05-03%20162645.png)
 
 erDiagram
     users ||--o{ topic_progress : has
@@ -57,9 +57,12 @@ erDiagram
     users ||--o{ code_attempts : submits
     users ||--o{ personal_guide : uses
 
-
+![Dashboard](https://github.com/manireddy11/AI-TUTOR-AGENT-/raw/1d700479dba43e16d86b06b18aa69916574f79b0/assets/Screenshot%202026-05-03%20162755.png)
 
 ---
+
+![Mermaid Diagram](https://github.com/manireddy11/AI-TUTOR-AGENT-/raw/1d700479dba43e16d86b06b18aa69916574f79b0/assets/deepseek_mermaid_20260503_2aeaa9.png)
+
 
 ## 🧰 Tech Stack
 
@@ -72,6 +75,53 @@ erDiagram
 | **Deployment** | Streamlit Community Cloud / any Docker‑ready host                          |
 
 ---
+
+
+![Quiz Interface](https://github.com/manireddy11/AI-TUTOR-AGENT-/raw/1d700479dba43e16d86b06b18aa69916574f79b0/assets/Screenshot%202026-05-03%20162721.png)
+
+
+
+![Screenshot](https://github.com/manireddy11/AI-TUTOR-AGENT-/raw/3d19139822455dbfee405a7ca1dcb61618fd1926/assets/Screenshot%202026-05-03%20165447.png)
+
+
+🗄️ Database Schema – Performance Tracking & Agent Data Flow
+The application uses Supabase (PostgreSQL) as its persistence layer. All user data – from login credentials to every chat message, quiz attempt, and coding submission – is stored in the five tables below. The AI Tutor (the Python/Streamlit agent) interacts with these tables using the Supabase client, performing direct select, insert, upsert, and delete queries.
+
+![Screenshot](https://github.com/manireddy11/AI-TUTOR-AGENT-/raw/3d19139822455dbfee405a7ca1dcb61618fd1926/assets/Screenshot%202026-05-03%20165813.png)
+
+
+🔍 How the AI Tutor Agent Retrieves Data
+The agent (Streamlit backend) uses the supabase Python client. Queries are always filtered by user_id to ensure data isolation.
+
+1. Loading user progress (e.g., dashboard)
+python
+def db_get_progress(uid):
+    res = db().table("topic_progress").select("*").eq("user_id", uid).execute()
+    return res.data
+The result is cached in st.session_state.progress to reduce database round‑trips.
+
+2. Updating progress after a quiz or lesson
+python
+def db_save_progress(uid, topic, subtopic, status, score=None):
+    payload = {
+        "user_id": uid, "topic": topic, "subtopic": subtopic,
+        "status": status, "score": score,
+        "completed_at": datetime.now(timezone.utc).isoformat() if status == "completed" else None
+    }
+    db().table("topic_progress").upsert(payload, on_conflict="user_id,topic,subtopic").execute()
+upsert = insert or update. If a user retakes a quiz, the new score and status overwrite the old ones – the latest attempt defines progress.
+
+3. Retrieving chat history for the Personal Teacher sidebar
+python
+def db_load_guide_messages(uid):
+    res = db().table("personal_guide").select("role,content,created_at")\
+              .eq("user_id", uid).order("created_at").execute()
+    return res.data or []
+Messages are loaded in chronological order and passed to the LLM (Groq) as conversation context – the AI remembers previous questions in the session.
+
+4. Aggregating performance for the dashboard
+The agent fetches raw records (e.g., all topic_progress entries for a user) and performs aggregations in Python – counting completed topics, averaging scores, building course‑by‑course breakdowns. This keeps SQL queries simple and portable.
+
 
 ## 🚀 Quick Start
 
