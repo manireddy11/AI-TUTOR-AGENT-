@@ -21,6 +21,8 @@
   <a href="#-courses">Courses</a>
 </p>
 
+![Alt text for your image](https://github.com/manireddy11/AI-TUTOR-AGENT-/raw/348d8a8a9000423fb8716a85598f243d3ae22a94/assets/Screenshot%202026-05-03%20162645.png)
+
 ---
 
 ## ✨ Features
